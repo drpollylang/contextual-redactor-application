@@ -1,35 +1,43 @@
 
 import React, { useEffect, useState, useCallback } from "react";
-import type { Highlight } from "./react-pdf-highlighter-extended";
 import "./style/Sidebar.css";
+import { DefaultButton } from "@fluentui/react";
 import { CommentedHighlight } from "./types";
-import { DefaultButton, IconButton } from "@fluentui/react";
+
+/* =========================
+   Props
+   ========================= */
 
 interface SidebarProps {
+  // Documents
   uploadedPdfs: Array<{ id: string; name: string; url: string }>;
   currentPdfId: string | null;
   setCurrentPdfId: (id: string) => void;
+
+  // Redactions / highlights
   allHighlights: Record<string, Array<CommentedHighlight>>;
   currentHighlights: Array<CommentedHighlight>;
-  toggleHighlightCheckbox: (
-    highlight: CommentedHighlight,
-    checked: boolean
-  ) => void;
+  toggleHighlightCheckbox: (highlight: CommentedHighlight, checked: boolean) => void;
+
+  // Upload
   handlePdfUpload: (file: File) => void;
 
-  // Legacy
+  // NEW: bulk-apply handler (provided by App.tsx)
+  onApplyAllGroup: (items: CommentedHighlight[]) => void;
+
+  // Legacy / misc
   highlights: Array<CommentedHighlight>;
   resetHighlights: () => void;
   toggleDocument: () => void;
 }
 
-declare const APP_VERSION: string;
+/* =========================
+   Helpers
+   ========================= */
 
-// Normalize text to group redactions
 const normalizeText = (s: string | undefined | null) =>
   (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 
-// Label for each redaction group
 const getDisplayLabel = (h: CommentedHighlight) => {
   const t = h.content?.text?.trim();
   if (t && t.length > 0) return t;
@@ -37,28 +45,28 @@ const getDisplayLabel = (h: CommentedHighlight) => {
   return `(No text)${pg ? ` — Page ${pg}` : ""}`;
 };
 
-/* ========================================================================
-   Grouped Redactions Component
-   ======================================================================== */
+/* =========================
+   Grouped Redactions
+   ========================= */
 
-interface Group {
-  key: string;
-  label: string;
-  items: CommentedHighlight[];
-}
+type Group = { key: string; label: string; items: CommentedHighlight[] };
 
-interface GroupedRedactionsProps {
+type GroupedRedactionsProps = {
   all: CommentedHighlight[];
   active: CommentedHighlight[];
   onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
   toggleSingle: (highlight: CommentedHighlight, checked: boolean) => void;
-}
+
+  // Bulk-apply (activate) all items in a group (adds missing ones only)
+  onApplyAllGroup: (items: CommentedHighlight[]) => void;
+};
 
 const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
   all,
   active,
   onToggleGroup,
   toggleSingle,
+  onApplyAllGroup,
 }) => {
   const groups: Group[] = React.useMemo(() => {
     const map = new Map<string, Group>();
@@ -66,11 +74,11 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
       const raw = h.content?.text ?? "";
       const key = normalizeText(raw) || "__no_text__";
       const label = getDisplayLabel(h);
-
-      if (!map.has(key)) {
-        map.set(key, { key, label, items: [h] });
+      const existing = map.get(key);
+      if (existing) {
+        existing.items.push(h);
       } else {
-        map.get(key)!.items.push(h);
+        map.set(key, { key, label, items: [h] });
       }
     }
     return [...map.values()];
@@ -78,26 +86,28 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
 
   const activeSet = React.useMemo(() => new Set(active.map((h) => h.id)), [active]);
 
-  // expanded groups
+  // expand/collapse state per group
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (key: string) =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  /* ---------------- Keyboard Navigation ---------------- */
-
+  /* Keyboard navigation (groups) */
   const [focusedGroupIndex, setFocusedGroupIndex] = useState(0);
 
   useEffect(() => {
-    if (groups.length === 0) return;
-    if (focusedGroupIndex >= groups.length)
+    if (groups.length === 0) {
+      setFocusedGroupIndex(0);
+      return;
+    }
+    if (focusedGroupIndex >= groups.length) {
       setFocusedGroupIndex(groups.length - 1);
+    }
   }, [groups, focusedGroupIndex]);
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
       if (groups.length === 0) return;
-
       const key = e.key;
       const group = groups[focusedGroupIndex];
 
@@ -105,39 +115,33 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
         e.preventDefault();
         setFocusedGroupIndex((i) => Math.min(i + 1, groups.length - 1));
       }
-
       if (key === "ArrowUp") {
         e.preventDefault();
         setFocusedGroupIndex((i) => Math.max(i - 1, 0));
       }
-
       if (key === " " || key === "Enter") {
         e.preventDefault();
-        // Toggle entire group
-        onToggleGroup(
-          group.items,
-          group.items.some((item) => !activeSet.has(item.id))
-        );
+        // Toggle entire group on space/enter (checked = any missing)
+        onToggleGroup(group.items, group.items.some((it) => !activeSet.has(it.id)));
       }
-
       if (key.toLowerCase() === "o") {
         e.preventDefault();
         toggleExpand(group.key);
       }
-
-      // Expand/collapse all
       if (key.toLowerCase() === "e") {
         e.preventDefault();
-        const next = groups.reduce((acc, g) => ({ ...acc, [g.key]: true }), {});
+        const next: Record<string, boolean> = {};
+        for (const g of groups) next[g.key] = true;
         setExpanded(next);
       }
       if (key.toLowerCase() === "c") {
         e.preventDefault();
-        const next = groups.reduce((acc, g) => ({ ...acc, [g.key]: false }), {});
+        const next: Record<string, boolean> = {};
+        for (const g of groups) next[g.key] = false;
         setExpanded(next);
       }
     },
-    [groups, activeSet, focusedGroupIndex, onToggleGroup]
+    [groups, focusedGroupIndex, activeSet, onToggleGroup]
   );
 
   useEffect(() => {
@@ -145,10 +149,9 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
     return () => window.removeEventListener("keydown", handleKey);
   }, [handleKey]);
 
-  /* ---------------- Render ---------------- */
-
-  if (groups.length === 0)
+  if (groups.length === 0) {
     return <div style={{ opacity: 0.6 }}>No redactions yet.</div>;
+  }
 
   return (
     <div>
@@ -156,7 +159,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
         const total = group.items.length;
         const activeCount = group.items.filter((h) => activeSet.has(h.id)).length;
 
-        const isChecked = activeCount === total && total > 0;
+        const isChecked = total > 0 && activeCount === total;
         const isIndeterminate = activeCount > 0 && activeCount < total;
 
         const setCheckboxRef = (el: HTMLInputElement | null) => {
@@ -174,7 +177,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
               background: focused ? "rgba(0, 120, 212, 0.15)" : "transparent",
             }}
           >
-            {/* GROUP HEADER */}
+            {/* Group header */}
             <label className="sidebar-highlight-item" title={group.label}>
               <input
                 ref={setCheckboxRef}
@@ -184,22 +187,34 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
               />
 
               <div
-                style={{ display: "flex", flexDirection: "column", cursor: "pointer" }}
+                style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
                 onClick={() => toggleExpand(group.key)}
               >
                 <span className="sidebar-highlight-text">
                   {expanded[group.key] ? "▾ " : "▸ "}
                   {group.label}
                 </span>
+
                 {total > 1 && (
-                  <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 16 }}>
-                    ×{total}
-                  </span>
+                  <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2 }}>×{total}</span>
                 )}
+
+                {/* Optional: group-level Apply all */}
+                <button
+                  className="ApplyAllBtn"
+                  title="Apply this redaction to all instances of this text"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onApplyAllGroup(group.items);
+                  }}
+                >
+                  Apply all
+                </button>
               </div>
             </label>
 
-            {/* EXPANDED INSTANCES */}
+            {/* Expanded instances */}
             {expanded[group.key] && (
               <div style={{ marginLeft: 28, marginTop: 2 }}>
                 {group.items.map((item, i) => {
@@ -208,16 +223,32 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                     <label
                       key={item.id}
                       className="sidebar-highlight-item"
-                      style={{ padding: "2px 0" }}
+                      style={{ padding: "2px 0", alignItems: "center" }}
+                      title={item.content?.text}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={(e) => toggleSingle(item, e.target.checked)}
                       />
-                      <span style={{ fontSize: 12 }}>
-                        Redaction {i + 1} — Page {item.position.boundingRect.pageNumber}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12 }}>
+                          Redaction {i + 1} — Page {item.position.boundingRect.pageNumber}
+                        </span>
+
+                        {/* Instance-level Apply all (same action) */}
+                        <button
+                          className="ApplyAllBtn"
+                          title="Apply this redaction to all other instances of this text"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onApplyAllGroup(group.items);
+                          }}
+                        >
+                          Apply all
+                        </button>
+                      </div>
                     </label>
                   );
                 })}
@@ -230,58 +261,9 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
   );
 };
 
-/* ========================================================================
-   Info Popup Component (Modal)
-   ======================================================================== */
-
-const ShortcutInfoModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      background: "rgba(0,0,0,0.35)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 9999,
-    }}
-    onClick={onClose}
-  >
-    <div
-      style={{
-        background: "#fff",
-        padding: "20px",
-        borderRadius: 8,
-        width: 380,
-        maxHeight: "80vh",
-        overflow: "auto",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <h2 style={{ marginTop: 0 }}>Keyboard Shortcuts</h2>
-
-      <ul style={{ fontSize: 14, lineHeight: 1.6 }}>
-        <li><strong>↑ / ↓</strong> — Move between redaction groups</li>
-        <li><strong>Space / Enter</strong> — Toggle selected group</li>
-        <li><strong>O</strong> — Expand/collapse selected group</li>
-        <li><strong>E</strong> — Expand all groups</li>
-        <li><strong>C</strong> — Collapse all groups</li>
-      </ul>
-
-      <div style={{ textAlign: "right", marginTop: 12 }}>
-        <DefaultButton text="Close" onClick={onClose} />
-      </div>
-    </div>
-  </div>
-);
-
-/* ========================================================================
+/* =========================
    Sidebar Component
-   ======================================================================== */
+   ========================= */
 
 const Sidebar: React.FC<SidebarProps> = ({
   uploadedPdfs,
@@ -291,6 +273,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentHighlights,
   toggleHighlightCheckbox,
   handlePdfUpload,
+
+  // NEW: bulk apply handler (from App)
+  onApplyAllGroup,
+
+  // legacy/misc
   highlights,
   resetHighlights,
   toggleDocument,
@@ -300,13 +287,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     highlights: true,
   });
 
-  const [showInfo, setShowInfo] = useState(false);
-
   const toggleSection = (key: keyof typeof sections) => {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Bulk toggle for group
+  // Group toggle: add/remove all items at once using existing single-toggle
   const onToggleGroup = useCallback(
     (items: CommentedHighlight[], checked: boolean) => {
       for (const h of items) toggleHighlightCheckbox(h, checked);
@@ -316,37 +301,18 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="sidebar" style={{ width: "25vw", maxWidth: "500px" }}>
-      {/* HEADER */}
-      <div className="description" style={{ padding: "1rem", position: "relative" }}>
-        <h2 style={{ marginBottom: "1rem" }}>
-          react-pdf-highlighter-extended {APP_VERSION}
-        </h2>
-
-        {/* INFO BUTTON */}
-        {/* <IconButton
-          iconProps={{ iconName: "Info" }}
-          title="Keyboard shortcuts"
-          ariaLabel="Keyboard shortcuts"
-          onClick={() => setShowInfo(true)}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-          }}
-        /> */}
-
+      {/* Header */}
+      <div className="description" style={{ padding: "1rem" }}>
+        <h2 style={{ marginBottom: "1rem" }}>react-pdf-highlighter-extended</h2>
         <p style={{ fontSize: "0.7rem" }}>
           https://github.com/DanielArnould/react-pdf-highlighter-extended
         </p>
-
         <p>
-          <small>
-            To create a redaction, hold ⌥ Option (Alt), then click and drag.
-          </small>
+          <small>To create a redaction, hold ⌥ Option (Alt), then click and drag.</small>
         </p>
       </div>
 
-      {/* UPLOAD BUTTON */}
+      {/* Upload */}
       <div style={{ padding: ".5rem", borderBottom: "1px solid #eee" }}>
         <DefaultButton
           text="Upload PDF"
@@ -366,7 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       </div>
 
-      {/* DOCUMENTS SECTION */}
+      {/* Documents */}
       <div style={{ borderBottom: "1px solid #eee" }}>
         <div
           onClick={() => toggleSection("documents")}
@@ -386,6 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <div
                     key={doc.id}
                     className={`sidebar-document${active ? " active" : ""}`}
+                    title={doc.name}
                     onClick={() => setCurrentPdfId(doc.id)}
                   >
                     {doc.name}
@@ -397,7 +364,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* REDACTIONS SECTION */}
+      {/* Redactions */}
       <div style={{ borderBottom: "1px solid #eee" }}>
         <div
           onClick={() => toggleSection("highlights")}
@@ -416,13 +383,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 active={currentHighlights}
                 onToggleGroup={onToggleGroup}
                 toggleSingle={toggleHighlightCheckbox}
+                onApplyAllGroup={onApplyAllGroup}  // <-- FIX: thread the handler here
               />
             )}
           </div>
         )}
       </div>
 
-      {/* RESET BUTTON */}
+      {/* Reset */}
       {currentHighlights.length > 0 && (
         <div style={{ padding: ".5rem" }}>
           <button onClick={resetHighlights} className="sidebar__reset">
@@ -430,9 +398,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
       )}
-
-      {/* INFO POPUP */}
-      {showInfo && <ShortcutInfoModal onClose={() => setShowInfo(false)} />}
     </div>
   );
 };

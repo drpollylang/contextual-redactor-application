@@ -1,3 +1,5 @@
+<!-- TODO: update README to provide documentation for web app -->
+<!--
 # react-pdf-highlighter-extended
 
 [![Node.js CI](https://github.com/DanielArnould/react-pdf-highlighter-extended/actions/workflows/node.js.yml/badge.svg)](https://github.com/DanielArnould/react-pdf-highlighter-extended/actions/workflows/node.js.yml)
@@ -317,3 +319,5 @@ const MyExpandableTip = () => {
 If you have a bug to report, please add it as an issue with clear steps to reproduce it.
 
 If you have a feature request, please add it as an issue or make a pull request. If you do wish to make a pull request, consider checking whether your feature has already been implemented or tested in the original [`react-pdf-highlighter`](https://github.com/agentcooper/react-pdf-highlighter).
+
+-->

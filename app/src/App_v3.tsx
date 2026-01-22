@@ -1,11 +1,11 @@
-// -----v1->v2 Side panel has collapsable sections for (i) Documents and (ii) Redactions with a checkbox list of redactions -----
+
 import React, { MouseEvent, useEffect, useRef, useState } from "react";
 
 import CommentForm from "./CommentForm";
 import ContextMenu, { ContextMenuProps } from "./ContextMenu";
 import ExpandableTip from "./ExpandableTip";
 import HighlightContainer from "./HighlightContainer";
-import Toolbar from "./Toolbar_v2";
+import Toolbar from "./Toolbar";
 
 import {
   GhostHighlight,
@@ -22,40 +22,34 @@ import Sidebar from "./Sidebar_v2_0";
 import "./style/App.css";
 import { CommentedHighlight } from "./types";
 
+import { IconButton, DefaultButton } from "@fluentui/react";
+
 //
-// ========================
-//       Helpers
-// ========================
+// Utility helpers
 //
 const getNextId = () => String(Math.random()).slice(2);
 
-const parseIdFromHash = () => {
-  return document.location.hash.slice("#highlight-".length);
-};
+const parseIdFromHash = () =>
+  document.location.hash.slice("#highlight-".length);
 
 const resetHash = () => {
   document.location.hash = "";
 };
 
-//
-// ========================
-//        Types
-// ========================
-//
 type UploadedPdf = {
   id: string;
   name: string;
-  url: string; // Blob URL via URL.createObjectURL(file)
+  url: string;
 };
 
 //
 // ========================
-//       Component
+//     App Component
 // ========================
 //
 const App: React.FC = () => {
   //
-  // ===== PDF Document List =====
+  // ===== PDF DOCUMENT STATE =====
   //
   const [uploadedPdfs, setUploadedPdfs] = useState<UploadedPdf[]>([]);
   const [currentPdfId, setCurrentPdfId] = useState<string | null>(null);
@@ -66,7 +60,7 @@ const App: React.FC = () => {
       : null;
 
   //
-  // ===== Highlights (active per doc + master list per doc) =====
+  // ===== HIGHLIGHTS / REDACTIONS =====
   //
   const [docHighlights, setDocHighlights] = useState<
     Record<string, Array<CommentedHighlight>>
@@ -81,7 +75,7 @@ const App: React.FC = () => {
       : [];
 
   //
-  // ===== UI State =====
+  // ===== UI STATE =====
   //
   const [contextMenu, setContextMenu] = useState<ContextMenuProps | null>(null);
   const [pdfScaleValue, setPdfScaleValue] = useState<number | undefined>(
@@ -89,47 +83,42 @@ const App: React.FC = () => {
   );
   const [highlightPen, setHighlightPen] = useState<boolean>(false);
 
+  const [showInfoModal, setShowInfoModal] = useState(false);
+
   const highlighterUtilsRef = useRef<PdfHighlighterUtils | null>(null);
 
   //
-  // ===== File Upload =====
+  // ===== HANDLE PDF UPLOAD =====
   //
   const handlePdfUpload = (file: File) => {
     const id = getNextId();
 
-    const newPdf: UploadedPdf = {
+    const pdf: UploadedPdf = {
       id,
       name: file.name,
       url: URL.createObjectURL(file),
     };
 
-    setUploadedPdfs((prev) => [...prev, newPdf]);
-    setCurrentPdfId(newPdf.id);
+    setUploadedPdfs((prev) => [...prev, pdf]);
+    setCurrentPdfId(pdf.id);
 
-    // Initialize highlight buckets for the new document
-    setDocHighlights((prev) => ({ ...prev, [newPdf.id]: [] }));
-    setAllHighlights((prev) => ({ ...prev, [newPdf.id]: [] }));
+    // init highlight lists
+    setDocHighlights((prev) => ({ ...prev, [pdf.id]: [] }));
+    setAllHighlights((prev) => ({ ...prev, [pdf.id]: [] }));
   };
 
   //
-  // ===== Cleanup PDF Blob URLs on unmount =====
+  // ===== CLEANUP ON UNMOUNT =====
   //
   useEffect(() => {
     return () => {
-      uploadedPdfs.forEach((p) => {
-        try {
-          URL.revokeObjectURL(p.url);
-        } catch {
-          // no-op
-        }
-      });
+      uploadedPdfs.forEach((p) => URL.revokeObjectURL(p.url));
     };
-    // We intentionally do not depend on uploadedPdfs here to avoid revoking in-use URLs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   //
-  // ===== Close Context Menu on Global Click =====
+  // ===== CONTEXT MENU CLICK-AWAY HANDLER =====
   //
   useEffect(() => {
     const onClick = () => {
@@ -154,7 +143,7 @@ const App: React.FC = () => {
   };
 
   //
-  // ===== Per-document Highlight Helpers =====
+  // ===== PER-DOCUMENT HIGHLIGHTS =====
   //
   const setCurrentDocHighlights = (
     updater:
@@ -164,33 +153,31 @@ const App: React.FC = () => {
     if (!currentPdfId) return;
 
     setDocHighlights((prev) => {
-      const existing = prev[currentPdfId] ?? [];
-      const next =
-        typeof updater === "function" ? (updater as any)(existing) : updater;
-      return { ...prev, [currentPdfId]: next };
+      const prevArr = prev[currentPdfId] ?? [];
+      const nextArr =
+        typeof updater === "function" ? updater(prevArr) : updater;
+      return { ...prev, [currentPdfId]: nextArr };
     });
   };
 
   //
-  // ===== Add / Delete / Edit Highlight =====
+  // ===== ADD / REMOVE / EDIT REDACTION =====
   //
   const addHighlight = (ghost: GhostHighlight, comment: string) => {
     if (!currentPdfId) return;
 
-    const newHighlight: CommentedHighlight = {
+    const newRedaction: CommentedHighlight = {
       ...ghost,
       comment,
       id: getNextId(),
     };
 
-    // Add to master list of all highlights for this doc
     setAllHighlights((prev) => ({
       ...prev,
-      [currentPdfId]: [...(prev[currentPdfId] ?? []), newHighlight],
+      [currentPdfId]: [...(prev[currentPdfId] ?? []), newRedaction],
     }));
 
-    // Also set it active immediately
-    setCurrentDocHighlights((prev) => [newHighlight, ...prev]);
+    setCurrentDocHighlights((prev) => [newRedaction, ...prev]);
   };
 
   const deleteHighlight = (highlight: ViewportHighlight | Highlight) => {
@@ -204,12 +191,10 @@ const App: React.FC = () => {
   const editHighlight = (id: string, update: Partial<CommentedHighlight>) => {
     if (!currentPdfId) return;
 
-    // Update active highlights (if present)
     setCurrentDocHighlights((prev) =>
       prev.map((h) => (h.id === id ? { ...h, ...update } : h))
     );
 
-    // Update master list (so checkbox list stays in sync)
     setAllHighlights((prev) => ({
       ...prev,
       [currentPdfId]: (prev[currentPdfId] ?? []).map((h) =>
@@ -224,7 +209,7 @@ const App: React.FC = () => {
   };
 
   //
-  // ===== Checkbox toggle for showing/hiding highlights =====
+  // ===== CHECKBOX TOGGLE (individual) =====
   //
   const toggleHighlightCheckbox = (
     highlight: CommentedHighlight,
@@ -233,12 +218,10 @@ const App: React.FC = () => {
     if (!currentPdfId) return;
 
     if (checked) {
-      // Add back if not present
       if (!currentHighlights.some((h) => h.id === highlight.id)) {
         setCurrentDocHighlights((prev) => [...prev, highlight]);
       }
     } else {
-      // Remove from active
       setCurrentDocHighlights((prev) =>
         prev.filter((h) => h.id !== highlight.id)
       );
@@ -246,7 +229,7 @@ const App: React.FC = () => {
   };
 
   //
-  // ===== Edit Comment Tip =====
+  // ===== EDIT COMMENT POPUP =====
   //
   const editComment = (highlight: ViewportHighlight<CommentedHighlight>) => {
     if (!highlighterUtilsRef.current) return;
@@ -270,15 +253,15 @@ const App: React.FC = () => {
   };
 
   //
-  // ===== Scroll to Highlight From URL Hash =====
+  // ===== SCROLL TO REDACTION FROM HASH =====
   //
   const getHighlightById = (id: string) =>
     currentHighlights.find((h) => h.id === id);
 
   const scrollToHighlightFromHash = () => {
-    const highlight = getHighlightById(parseIdFromHash());
-    if (highlight && highlighterUtilsRef.current) {
-      highlighterUtilsRef.current.scrollToHighlight(highlight);
+    const target = getHighlightById(parseIdFromHash());
+    if (target && highlighterUtilsRef.current) {
+      highlighterUtilsRef.current.scrollToHighlight(target);
     }
   };
 
@@ -286,20 +269,18 @@ const App: React.FC = () => {
     window.addEventListener("hashchange", scrollToHighlightFromHash);
     return () =>
       window.removeEventListener("hashchange", scrollToHighlightFromHash);
-    // Re-run handler when active highlights change (ids may differ)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHighlights]);
 
   //
   // ========================
-  //         Render
+  //        RENDER
   // ========================
   //
   return (
     <div className="App" style={{ display: "flex", height: "100vh" }}>
-      {/* ===== SIDEBAR ===== */}
+      {/* SIDEBAR */}
       <Sidebar
-        // New props for collapsible docs & highlights
         uploadedPdfs={uploadedPdfs}
         currentPdfId={currentPdfId}
         setCurrentPdfId={setCurrentPdfId}
@@ -307,13 +288,12 @@ const App: React.FC = () => {
         currentHighlights={currentHighlights}
         toggleHighlightCheckbox={toggleHighlightCheckbox}
         handlePdfUpload={handlePdfUpload}
-        // Legacy props (kept to avoid breaking)
         highlights={currentHighlights}
         resetHighlights={resetHighlights}
         toggleDocument={() => {}}
       />
 
-      {/* ===== MAIN VIEWER ===== */}
+      {/* MAIN VIEW */}
       <div
         style={{
           height: "100vh",
@@ -323,11 +303,101 @@ const App: React.FC = () => {
           flexGrow: 1,
         }}
       >
+
+        {/* TOOLBAR */}
         <Toolbar
-          setPdfScaleValue={(value) => setPdfScaleValue(value)}
-          toggleHighlightPen={() => setHighlightPen(!highlightPen)}
+        setPdfScaleValue={setPdfScaleValue}
+        toggleHighlightPen={() => setHighlightPen(!highlightPen)}
+        onShowInfo={() => setShowInfoModal(true)}
         />
 
+        {/* ===== Toolbar + Info Button ===== */}
+        {/* <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            height: 41,
+            padding: "0 10px",
+            borderBottom: "1px solid #ddd",
+            background: "#fafafa",
+          }}
+        >
+          <Toolbar
+            setPdfScaleValue={setPdfScaleValue}
+            toggleHighlightPen={() => setHighlightPen(!highlightPen)}
+          />
+
+          <IconButton
+            iconProps={{ iconName: "Info" }}
+            title="Keyboard Shortcuts"
+            ariaLabel="Keyboard Shortcuts"
+            onClick={() => setShowInfoModal(true)}
+          />
+        </div> */}
+        
+        {/* <div style={{ position: "relative" }}>
+        <Toolbar
+            setPdfScaleValue={setPdfScaleValue}
+            toggleHighlightPen={() => setHighlightPen(!highlightPen)}
+        /> */}
+
+        
+        {/* 
+        ===== Toolbar + Info Button =====
+        <div
+        style={{
+            position: "relative",
+            height: 41,
+            borderBottom: "1px solid #ddd",
+            background: "#fafafa",
+        }}
+        >
+         */}    
+        {/* Toolbar needs right padding so its buttons don’t collide */}
+        {/* <div style={{ paddingRight: 48 }}>
+            <Toolbar
+            setPdfScaleValue={setPdfScaleValue}
+            toggleHighlightPen={() => setHighlightPen(!highlightPen)}
+            />
+        </div> */}
+
+        {/* Info button positioned top-right */}
+        {/* 
+        <IconButton
+        iconProps={{ iconName: "Info" }}
+        title="Keyboard Shortcuts"
+        ariaLabel="Keyboard Shortcuts"
+        onClick={() => setShowInfoModal(true)}
+        styles={{
+            root: {
+            background: "transparent",
+            color: "#ffffff", // white icon
+            },
+            rootHovered: {
+            background: "rgba(255,255,255,0.15)",
+            color: "#ffffff",
+            },
+            rootPressed: {
+            background: "rgba(255,255,255,0.25)",
+            color: "#ffffff",
+            },
+            icon: {
+            color: "#ffffff", // explicitly force icon color 
+            },
+        }}
+        style={{
+            position: "absolute",
+            right: 8,
+            top: 6,
+            zIndex: 10,
+        }}
+        />
+
+        </div> */}
+
+
+        {/* ===== PDF VIEWER ===== */}
         {!currentPdf ? (
           <div
             style={{
@@ -336,7 +406,7 @@ const App: React.FC = () => {
               alignItems: "center",
               justifyContent: "center",
               fontSize: 18,
-              opacity: 0.6,
+              opacity: 0.5,
             }}
           >
             Upload a PDF to begin
@@ -357,8 +427,8 @@ const App: React.FC = () => {
                 }
                 onSelection={
                   highlightPen
-                    ? (selection) =>
-                        addHighlight(selection.makeGhostHighlight(), "")
+                    ? (sel) =>
+                        addHighlight(sel.makeGhostHighlight(), "")
                     : undefined
                 }
                 selectionTip={
@@ -380,6 +450,51 @@ const App: React.FC = () => {
       </div>
 
       {contextMenu && <ContextMenu {...contextMenu} />}
+
+      {/* ===== Info Modal ===== */}
+      {showInfoModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 5000,
+          }}
+          onClick={() => setShowInfoModal(false)}
+        >
+          <div
+            style={{
+              background: "white",
+              padding: "24px 28px",
+              borderRadius: 8,
+              width: 380,
+              maxHeight: "80vh",
+              overflowY: "auto",
+              boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginTop: 0 }}>Keyboard Shortcuts</h2>
+            <ul style={{ fontSize: 15, lineHeight: 1.7 }}>
+              <li><strong>↑ / ↓</strong> — Move between redaction groups</li>
+              <li><strong>Space / Enter</strong> — Toggle selected group</li>
+              <li><strong>O</strong> — Expand/collapse selected group</li>
+              <li><strong>E</strong> — Expand all groups</li>
+              <li><strong>C</strong> — Collapse all groups</li>
+            </ul>
+
+            <div style={{ textAlign: "right", marginTop: 16 }}>
+              <DefaultButton text="Close" onClick={() => setShowInfoModal(false)} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

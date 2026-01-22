@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@fluentui/react": "^8.125.3",
+    "dexie": "^4.2.1",
     "lodash.debounce": "^4.0.8",
     "pdfjs-dist": "^4.4.168",
     "react-rnd": "^10.4.11"
