@@ -1,0 +1,124 @@
+
+/* ===== GENERAL SIDEBAR CONTAINER ===== */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: #ffffff;
+  border-right: 1px solid #e5e5e5;
+  font-family: "Segoe UI", Roboto, sans-serif;
+}
+
+/* ===== DESCRIPTION HEADER ===== */
+.sidebar .description {
+  border-bottom: 1px solid #eee;
+}
+
+.sidebar .description h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.sidebar .description p {
+  margin: 0.25rem 0;
+}
+
+/* ===== COLLAPSIBLE SECTION HEADERS ===== */
+.sidebar-section-header {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  background: #fafafa;
+  border-bottom: 1px solid #eee;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.sidebar-section-header:hover {
+  background: #f3f3f3;
+}
+
+/* ===== LIST CONTAINERS ===== */
+.sidebar-section-content {
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 30vh;
+}
+
+/* ===== DOCUMENT LIST ===== */
+.sidebar-document {
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sidebar-document:hover {
+  background: rgba(0, 120, 212, 0.08);
+  border-color: rgba(0, 120, 212, 0.25);
+}
+
+.sidebar-document.active {
+  background: rgba(0, 120, 212, 0.15);
+  border-color: #0078d4;
+  font-weight: 600;
+}
+
+/* ===== HIGHLIGHT CHECKBOX ITEMS ===== */
+.sidebar-highlight-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.sidebar-highlight-item input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* ===== HIGHLIGHT TEXT PREVIEW ===== */
+.sidebar-highlight-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ===== LEGACY BUTTON STYLES (if still used) ===== */
+.sidebar__toggle,
+.sidebar__reset {
+  width: 100%;
+  padding: 0.5rem;
+  background: #eaeaea;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.sidebar__toggle:hover,
+.sidebar__reset:hover {
+  background: #dcdcdc;
+}
+
+/* ===== SCROLLBAR ===== */
+.sidebar::-webkit-scrollbar,
+.sidebar-section-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.sidebar-section-content::-webkit-scrollbar-thumb {
+  background: #c8c8c8;
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.sidebar-section-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

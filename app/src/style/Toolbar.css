@@ -1,0 +1,72 @@
+.Toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 16px;
+    background-color: #2b2e33;
+    color: #f5f5f5;
+    border-bottom: 2px solid #9096a2;
+    gap: 12px;                  /* global gap between direct children */
+}
+
+.ZoomControls {
+    display: flex;
+    align-items: center;
+}
+
+.ZoomControls button {
+    background: none;
+    /* Remove background */
+    color: #f5f5f5;
+    border: none;
+    /* Remove border */
+    cursor: pointer;
+    font-size: 24px;
+    padding: 2px;
+    margin-right: 20px;
+    transition: color 0.3s, transform 0.2s;
+}
+
+.ZoomControls button:hover {
+    color: #b958ff;
+    transform: scale(1.05);
+}
+
+.HighlightButton {
+    background: none;
+    /* Remove background */
+    color: #f5f5f5;
+    border: none;
+    /* Remove border */
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px;
+    margin-left: 50px;
+    margin-right: 8px;
+    transition: color 0.3s, transform 0.2s;
+}
+
+.HighlightButton:hover {
+    color: #b958ff;
+    transform: scale(1.05);
+}
+
+.HighlightButton.active {
+    color: #b958ff;
+}
+
+
+/* Info button matches dark theme */
+.InfoButton {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.InfoButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
