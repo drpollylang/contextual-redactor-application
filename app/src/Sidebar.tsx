@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import "./style/Sidebar.css";
-import { DefaultButton } from "@fluentui/react";
+import { DefaultButton, PrimaryButton } from "@fluentui/react";
 import { DeleteRegular } from "@fluentui/react-icons";
 import { CommentedHighlight } from "./types";
 
@@ -430,7 +430,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Upload */}
-      <div style={{ padding: ".5rem", borderBottom: "1px solid #eee" }}>
+      <div 
+      // style={{ padding: ".5rem", borderBottom: "1px solid #eee" }}
+       style={{
+        padding: ".5rem",
+        borderBottom: "1px solid #eee",
+        display: "flex",               // ✅ center horizontally
+        justifyContent: "center",
+      }}
+      >
         <DefaultButton
           text="Upload PDF"
           iconProps={{ iconName: "Upload" }}
@@ -448,7 +456,35 @@ const Sidebar: React.FC<SidebarProps> = ({
           }}
         />
       </div>
-
+      
+    {/* <div
+    style={{
+        padding: ".5rem",
+        borderBottom: "1px solid #eee",
+        display: "flex",               // ✅ center horizontally
+        justifyContent: "center",
+    }}
+    >
+    <PrimaryButton
+        text="Upload PDF"
+        iconProps={{ iconName: "Upload" }}
+        onClick={() => document.getElementById("pdf-upload-input")?.click()}
+        ariaLabel="Upload a PDF"
+    />
+    <input
+        id="pdf-upload-input"
+        type="file"
+        accept="application/pdf"
+        style={{ display: "none" }}
+        onChange={(e) => {
+        const f = e.target.files?.[0];
+        if (f) handlePdfUpload(f);
+        e.currentTarget.value = "";
+        }}
+    />
+    </div>
+    */}
+    
       {/* Documents */}
       <div style={{ borderBottom: "1px solid #eee" }}>
         <div
