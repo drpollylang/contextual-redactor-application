@@ -97,6 +97,90 @@ const App: React.FC = () => {
       : null;
 
   
+  // ======== Search state ========
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<CommentedHighlight[]>([]);
+  const [searchIndex, setSearchIndex] = useState<number>(-1);
+
+  
+  const norm = (s?: string | null) =>
+    (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+
+  // helper: access PdfHighlighter utils you already keep
+  // const highlighterUtilsRef = useRef<PdfHighlighterUtils | null>(null); // (you already have this)
+  
+  useEffect(() => {
+    if (!currentPdfId || !searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchIndex(-1);
+      return;
+    }
+
+    const q = norm(searchQuery);
+    const pool = allHighlights[currentPdfId] ?? [];
+
+    // Match on highlight text or comment (you can remove comment if undesired)
+    const results = pool.filter(h => {
+      const text = norm(h.content?.text);
+      const comment = norm(h.comment);
+      return text.includes(q) || comment.includes(q);
+    });
+
+    setSearchResults(results);
+    setSearchIndex(results.length > 0 ? 0 : -1);
+  }, [searchQuery, currentPdfId, allHighlights]);
+
+  
+  const scrollToSearchIndex = (idx: number) => {
+    if (!currentPdfId || idx < 0 || idx >= searchResults.length) return;
+    const target = searchResults[idx];
+    if (target && highlighterUtilsRef.current) {
+      highlighterUtilsRef.current.scrollToHighlight(target);
+    }
+  };
+
+  
+  const searchNext = () => {
+    if (searchResults.length === 0) return;
+    setSearchIndex(prev => {
+      const next = (prev + 1) % searchResults.length;
+      // Scroll after state updates
+      setTimeout(() => scrollToSearchIndex(next), 0);
+      return next;
+    });
+  };
+
+  const searchPrev = () => {
+    if (searchResults.length === 0) return;
+    setSearchIndex(prev => {
+      const next = (prev - 1 + searchResults.length) % searchResults.length;
+      setTimeout(() => scrollToSearchIndex(next), 0);
+      return next;
+    });
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchIndex(-1);
+  };
+
+  
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // F3 / Shift+F3 for next/prev (like editors)
+      if (e.key === "F3") {
+        e.preventDefault();
+        if (e.shiftKey) searchPrev();
+        else searchNext();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchResults.length]);
+
+
   // === History (debug timeline) ===
   type Snapshot = {
     doc: Record<string, CommentedHighlight[]>;
@@ -190,6 +274,13 @@ const App: React.FC = () => {
   /* ---- Viewer / UI state ---- */
   const [zoom, setZoom] = useState<number | null>(null);
   const [highlightPen, setHighlightPen] = useState<boolean>(false);
+
+  
+  // 2) Stable toggle handler (flip once)
+  const handleToggleHighlightPen = React.useCallback(() => {
+    setHighlightPen(v => !v);
+  }, []);
+
 
   const [contextMenu, setContextMenu] = useState<ContextMenuProps | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -811,6 +902,10 @@ const App: React.FC = () => {
   const canUndo = undoStack.length > 0;
   const canRedo = redoStack.length > 0;
 
+  // Search counters for toolbar
+  const searchTotal = searchResults.length;
+  const searchPos = searchIndex >= 0 ? searchIndex + 1 : 0;
+
 
   /* =========================
      Render
@@ -853,6 +948,13 @@ const App: React.FC = () => {
           canUndo={canUndo}
           canRedo={canRedo}
           onShowInfo={() => setShowInfoModal(true)}
+          searchQuery={searchQuery}
+          onChangeSearch={setSearchQuery}
+          onSearchNext={searchNext}
+          onSearchPrev={searchPrev}
+          onClearSearch={clearSearch}
+          searchPos={searchPos}
+          searchTotal={searchTotal}
           onToggleHistory={() => setShowHistory((v) => !v)} 
         />
 

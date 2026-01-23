@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { IconButton, Stack, IIconProps, IButtonStyles, TooltipHost } from "@fluentui/react";
+import { IconButton, Stack, IIconProps, IButtonStyles, TooltipHost, SearchBox } from "@fluentui/react";
 
 import "./style/Toolbar.css";
 
@@ -14,6 +14,14 @@ interface ToolbarProps {
   canRedo: boolean;
   // info button
   onShowInfo: () => void;
+  // search bar
+  searchQuery: string;
+  onChangeSearch: (q: string) => void;
+  onSearchNext: () => void;
+  onSearchPrev: () => void;
+  onClearSearch: () => void;
+  searchPos: number;
+  searchTotal: number;
   // history timeline
   onToggleHistory: () => void;
 }
@@ -55,8 +63,21 @@ const iconBtnStyles: IButtonStyles = {
 };
 
 
+// Reuse your dark icon button styles
+// const iconBtnStyles: IButtonStyles = {
+//   root: { background: "transparent", color: "#cfd8e3", padding: 4, border: "none", minWidth: 28, height: 28 },
+//   rootHovered: { background: "rgba(255,255,255,0.08)", color: "#fff" },
+//   rootPressed: { background: "rgba(255,255,255,0.12)", color: "#fff" },
+//   rootDisabled: { background: "transparent", color: "rgba(255,255,255,0.3)" },
+//   icon: { color: "inherit", fontSize: 16 },
+// };
+
+
 const Toolbar: React.FC<ToolbarProps> = 
-({ setPdfScaleValue, toggleHighlightPen, undo, redo, canUndo, canRedo, onShowInfo, onToggleHistory }: ToolbarProps) => {
+({ setPdfScaleValue, toggleHighlightPen, 
+  undo, redo, canUndo, canRedo, 
+  searchQuery, onChangeSearch, onSearchNext, onSearchPrev, onClearSearch, searchPos, searchTotal,
+  onShowInfo, onToggleHistory }: ToolbarProps) => {
   const [zoom, setZoom] = useState<number | null>(null);
   const [isHighlightPen, setIsHighlightPen] = useState<boolean>(false);
 
@@ -234,6 +255,61 @@ const Toolbar: React.FC<ToolbarProps> =
         Toggle Redactions
         </button> 
       {/* Spacer pushes icon strip to the right */}
+      <div style={{ flex: 1 }} />
+
+      {/* CENTRE strip: search bar/next/prev */}
+      
+      {/* === Search strip (compact) === */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <SearchBox
+          styles={{
+            root: { width: 220, background: "rgba(255,255,255,0.08)", borderRadius: 4 },
+            field: { color: "#e5e7eb" },
+            icon: { color: "#cfd8e3" },
+            clearButton: { color: "#cfd8e3" },
+          }}
+          placeholder="Search highlights…"
+          value={searchQuery}
+          onChange={(_, v) => onChangeSearch(v ?? "")}
+          onClear={onClearSearch}
+          onSearch={onSearchNext} // Enter → next
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.shiftKey) {
+              e.preventDefault();
+              onSearchPrev();
+            } else if (e.key === "Escape") {
+              onClearSearch();
+            }
+          }}
+        />
+
+        {/* Counter */}
+        <span style={{ color: "#cfd8e3", fontSize: 12, minWidth: 46, textAlign: "right" }}>
+          {searchPos} / {searchTotal}
+        </span>
+
+        {/* Prev / Next */}
+        <TooltipHost content="Previous (Shift+Enter / Shift+F3)">
+          <IconButton
+            styles={iconBtnStyles}
+            iconProps={{ iconName: "ChevronUp" }}
+            ariaLabel="Previous result"
+            onClick={onSearchPrev}
+            disabled={searchTotal === 0}
+          />
+        </TooltipHost>
+
+        <TooltipHost content="Next (Enter / F3)">
+          <IconButton
+            styles={iconBtnStyles}
+            iconProps={{ iconName: "ChevronDown" }}
+            ariaLabel="Next result"
+            onClick={onSearchNext}
+            disabled={searchTotal === 0}
+          />
+        </TooltipHost>
+      </div>
+
       <div style={{ flex: 1 }} />
 
       {/* Right icon strip: Undo / Redo / History / Info */}
