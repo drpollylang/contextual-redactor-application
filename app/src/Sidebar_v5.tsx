@@ -6,7 +6,7 @@ import { CommentedHighlight } from "./types";
 
 /* =========================
    Props
-========================= */
+   ========================= */
 
 interface SidebarProps {
   // Documents
@@ -22,12 +22,8 @@ interface SidebarProps {
   // Upload
   handlePdfUpload: (file: File) => void;
 
-  // Bulk-apply handler
+  // NEW: bulk-apply handler (provided by App.tsx)
   onApplyAllGroup: (items: CommentedHighlight[]) => void;
-
-  // NEW — remove a single highlight entirely
-  onRemoveHighlight: (highlight: CommentedHighlight) => void;
-  onRemoveGroup: (items: CommentedHighlight[]) => void;
 
   // Legacy / misc
   highlights: Array<CommentedHighlight>;
@@ -37,7 +33,7 @@ interface SidebarProps {
 
 /* =========================
    Helpers
-========================= */
+   ========================= */
 
 const normalizeText = (s: string | undefined | null) =>
   (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
@@ -51,7 +47,7 @@ const getDisplayLabel = (h: CommentedHighlight) => {
 
 /* =========================
    Grouped Redactions
-========================= */
+   ========================= */
 
 type Group = { key: string; label: string; items: CommentedHighlight[] };
 
@@ -61,11 +57,8 @@ type GroupedRedactionsProps = {
   onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
   toggleSingle: (highlight: CommentedHighlight, checked: boolean) => void;
 
+  // Bulk-apply (activate) all items in a group (adds missing ones only)
   onApplyAllGroup: (items: CommentedHighlight[]) => void;
-
-  // NEW
-  onRemoveHighlight: (item: CommentedHighlight) => void;
-  onRemoveGroup: (items: CommentedHighlight[]) => void;
 };
 
 const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
@@ -74,8 +67,6 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
   onToggleGroup,
   toggleSingle,
   onApplyAllGroup,
-  onRemoveHighlight,
-  onRemoveGroup
 }) => {
   const groups: Group[] = React.useMemo(() => {
     const map = new Map<string, Group>();
@@ -83,7 +74,6 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
       const raw = h.content?.text ?? "";
       const key = normalizeText(raw) || "__no_text__";
       const label = getDisplayLabel(h);
-
       const existing = map.get(key);
       if (existing) {
         existing.items.push(h);
@@ -91,17 +81,19 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
         map.set(key, { key, label, items: [h] });
       }
     }
+    console.log("GroupedRedactions props", { onApplyAllGroup });
     return [...map.values()];
   }, [all]);
 
   const activeSet = React.useMemo(() => new Set(active.map((h) => h.id)), [active]);
 
+  // expand/collapse state per group
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (key: string) =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  /* Keyboard navigation */
+  /* Keyboard navigation (groups) */
   const [focusedGroupIndex, setFocusedGroupIndex] = useState(0);
 
   useEffect(() => {
@@ -130,6 +122,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
       }
       if (key === " " || key === "Enter") {
         e.preventDefault();
+        // Toggle entire group on space/enter (checked = any missing)
         onToggleGroup(group.items, group.items.some((it) => !activeSet.has(it.id)));
       }
       if (key.toLowerCase() === "o") {
@@ -185,7 +178,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
               background: focused ? "rgba(0, 120, 212, 0.15)" : "transparent",
             }}
           >
-            {/* Group Header */}
+            {/* Group header */}
             <label className="sidebar-highlight-item" title={group.label}>
               <input
                 ref={setCheckboxRef}
@@ -204,46 +197,30 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                 </span>
 
                 {total > 1 && (
-                  <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2, flex: 1 }}>×{total}</span>
+                  <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2 }}>×{total}</span>
                 )}
 
-                {/* Group-level Apply all */}
+                {/* Optional: group-level Apply all */}
                 <button
                   className="ApplyAllBtn"
                   title="Apply this redaction to all instances of this text"
                   onClick={(e) => {
                     e.preventDefault();
-                    e.stopPropagation();
+                    e.stopPropagation();   
+                    console.log("APPLY ALL CLICKED for group:", group.items);
                     onApplyAllGroup(group.items);
                   }}
                 >
                   Apply all
                 </button>
-                <span className="sidebar-main__spacer" style={{ flex: 1 }} />
-                {/* ✅ NEW: Group-level Remove all (red text link) */}
-                <button
-                className="RemoveLink"
-                style={{ float: "right", paddingRight: 5 }}
-                title="Remove all redactions in this group"
-                onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (window.confirm("Remove all redactions in this group? This cannot be undone.")) {
-                        onRemoveGroup(group.items);
-                    }
-                }}
-                >
-                    Remove all
-                </button>
               </div>
             </label>
 
-            {/* Expanded items */}
+            {/* Expanded instances */}
             {expanded[group.key] && (
               <div style={{ marginLeft: 28, marginTop: 2 }}>
                 {group.items.map((item, i) => {
                   const checked = activeSet.has(item.id);
-
                   return (
                     <label
                       key={item.id}
@@ -256,25 +233,22 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                         checked={checked}
                         onChange={(e) => toggleSingle(item, e.target.checked)}
                       />
-
-                      <div className="sidebar-row__content" 
-                        style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, }}>
-                        <span className="sidebar-row__title" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 12 }}>
                           Redaction {i + 1} — Page {item.position.boundingRect.pageNumber}
                         </span>
-                        <span className="sidebar-row__spacer" style={{ flex: 1 }} />
-                        {/* Remove Button */}
+
+                        {/* Instance-level Apply all (same action) */}
                         <button
-                          className="RemoveBtn"
-                          title="Remove this redaction"
-                          style={{ float: "right", paddingRight: 5 }}  // ✅ pushes it to the far right
+                          className="ApplyAllBtn"
+                          title="Apply this redaction to all other instances of this text"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            onRemoveHighlight(item);
+                            onApplyAllGroup(group.items);
                           }}
                         >
-                          Remove
+                          Apply all
                         </button>
                       </div>
                     </label>
@@ -290,8 +264,8 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
 };
 
 /* =========================
-   Main Sidebar Component
-========================= */
+   Sidebar Component
+   ========================= */
 
 const Sidebar: React.FC<SidebarProps> = ({
   uploadedPdfs,
@@ -302,9 +276,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   toggleHighlightCheckbox,
   handlePdfUpload,
 
+  // NEW: bulk apply handler (from App)
   onApplyAllGroup,
-  onRemoveHighlight,
-  onRemoveGroup,
+
+  // legacy/misc
   highlights,
   resetHighlights,
   toggleDocument,
@@ -318,6 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // Group toggle: add/remove all items at once using existing single-toggle
   const onToggleGroup = useCallback(
     (items: CommentedHighlight[], checked: boolean) => {
       for (const h of items) toggleHighlightCheckbox(h, checked);
@@ -409,9 +385,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 active={currentHighlights}
                 onToggleGroup={onToggleGroup}
                 toggleSingle={toggleHighlightCheckbox}
-                onApplyAllGroup={onApplyAllGroup}
-                onRemoveHighlight={onRemoveHighlight}
-                onRemoveGroup={onRemoveGroup} 
+                onApplyAllGroup={onApplyAllGroup}  // <-- FIX: thread the handler here
               />
             )}
           </div>

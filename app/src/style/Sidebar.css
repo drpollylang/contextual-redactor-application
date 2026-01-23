@@ -139,3 +139,35 @@
   background: rgba(0, 120, 212, 0.1);
   border-radius: 3px;
 }
+
+
+
+.RemoveBtn {
+  background: transparent;
+  border: none;
+  color: #d92d20;            /* vivid red */
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;     /* plain text */
+}
+
+.RemoveBtn:hover {
+  text-decoration: underline;
+  color: #b42318;            /* darker red on hover */
+}
+
+
+.RemoveLink {
+  background: transparent;
+  border: none;
+  color: #d92d20;
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+.RemoveLink:hover {
+  color: #b42318;
+  text-decoration: underline;
+}
