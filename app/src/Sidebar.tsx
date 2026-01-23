@@ -329,12 +329,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="sidebar" style={{ width: "25vw", maxWidth: "500px" }}>
       {/* Header */}
       <div className="description" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "1rem" }}>react-pdf-highlighter-extended</h2>
+        <h2 style={{ marginBottom: "1rem" }}>Somerset Council Redaction Tool</h2>
         <p style={{ fontSize: "0.7rem" }}>
-          https://github.com/DanielArnould/react-pdf-highlighter-extended
-        </p>
-        <p>
-          <small>To create a redaction, hold ⌥ Option (Alt), then click and drag.</small>
+          https://github.com/drpollylang/contextual-redactor-application
         </p>
       </div>
 

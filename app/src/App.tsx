@@ -247,6 +247,55 @@ const App: React.FC = () => {
     if (currentPdfId) persistHighlightsToDB(currentPdfId);
   };
 
+  useEffect(() => {
+    const isEditableTarget = (el: EventTarget | null): boolean => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName.toLowerCase();
+      const contentEditable = el.getAttribute("contenteditable");
+      return (
+        tag === "input" ||
+        tag === "textarea" ||
+        contentEditable === "" ||
+        contentEditable === "true"
+      );
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ignore shortcuts while typing in inputs, textareas, or contentEditable
+      if (isEditableTarget(e.target)) return;
+
+      const key = e.key.toLowerCase();
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+
+      if (!mod) return;
+
+      // ---- UNDO ----
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      // ---- REDO (Shift+Z in most apps) ----
+      if (key === "z" && e.shiftKey) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // ---- Optional REDO fallback (Ctrl/Cmd + Y) ----
+      if (key === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown, { passive: false });
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undo, redo]);
+
 
   /* =========================
      Initial restore from DB
@@ -903,6 +952,12 @@ const App: React.FC = () => {
               </li>
               <li>
                 <strong>C</strong> — Collapse all groups
+              </li>
+              <li>
+                <strong>Ctrl+Z / ⌘Z</strong> - Undo
+              </li>
+              <li>
+                <strong>trl+Shift+Z / ⌘⇧Z</strong> - Redo
               </li>
               <li>
                 <strong>Ctrl + Shft + h</strong> — View history timeline
