@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "./style/Sidebar.css";
 import { DefaultButton } from "@fluentui/react";
+import { DeleteRegular } from "@fluentui/react-icons";
 import { CommentedHighlight } from "./types";
 
 /* =========================
@@ -186,7 +187,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
             }}
           >
             {/* Group Header */}
-            <label className="sidebar-highlight-item" title={group.label}>
+            {/* <label className="sidebar-highlight-item" title={group.label}>
               <input
                 ref={setCheckboxRef}
                 type="checkbox"
@@ -207,7 +208,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                   <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2, flex: 1 }}>×{total}</span>
                 )}
 
-                {/* Group-level Apply all */}
+                //  Group-level Apply all
                 <button
                   className="ApplyAllBtn"
                   title="Apply this redaction to all instances of this text"
@@ -220,7 +221,6 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                   Apply all
                 </button>
                 <span className="sidebar-main__spacer" style={{ flex: 1 }} />
-                {/* ✅ NEW: Group-level Remove all (red text link) */}
                 <button
                 className="RemoveLink"
                 style={{ float: "right", paddingRight: 5 }}
@@ -236,7 +236,89 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                     Remove all
                 </button>
               </div>
+            </label> */}
+            
+            <label className="sidebar-highlight-item" title={group.label}>
+            <input
+                ref={setCheckboxRef}
+                type="checkbox"
+                checked={isChecked}
+                onChange={(e) => onToggleGroup(group.items, e.target.checked)}
+            />
+
+            <div
+                style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                width: "100%",           // ✅ make row span full width
+                }}
+                onClick={() => toggleExpand(group.key)}
+            >
+                <span className="sidebar-highlight-text">
+                {expanded[group.key] ? "▾ " : "▸ "}
+                {group.label}
+                </span>
+
+                {total > 1 && (
+                <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2 }}>
+                    ×{total}
+                </span>
+                )}
+
+                {/* ✅ Always-present spacer pushes the buttons to the far right */}
+                <span style={{ flex: 1 }} />
+
+                {/* Group-level Apply all */}
+                <button
+                className="ApplyAllBtn"
+                title="Apply this redaction to all instances of this text"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onApplyAllGroup(group.items);
+                }}
+                style={{ marginRight: 8 }}   // small gap before Remove all
+                >
+                Apply all
+                </button>
+
+                {/* ✅ Group-level Remove all (red text link) */}
+                {/* <button
+                className="RemoveLink"
+                title="Remove all redactions in this group"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (
+                    window.confirm(
+                        "Remove all redactions in this group? This cannot be undone."
+                    )
+                    ) {
+                    onRemoveGroup(group.items);
+                    }
+                }}
+                >
+                Remove all
+                </button> */}  
+                <button
+                className="RemoveLink"
+                title="Remove all redactions in this group"
+                aria-label="Remove all redactions in this group"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (window.confirm("Remove all redactions in this group? This cannot be undone.")) {
+                    onRemoveGroup(group.items);
+                    }
+                }}
+                >
+                <DeleteRegular style={{ fontSize: 18, lineHeight: 1, verticalAlign: "middle" }} />
+                </button>
+            </div>
             </label>
+
 
             {/* Expanded items */}
             {expanded[group.key] && (
@@ -264,7 +346,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                         </span>
                         <span className="sidebar-row__spacer" style={{ flex: 1 }} />
                         {/* Remove Button */}
-                        <button
+                        {/* <button
                           className="RemoveBtn"
                           title="Remove this redaction"
                           style={{ float: "right", paddingRight: 5 }}  // ✅ pushes it to the far right
@@ -275,6 +357,18 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                           }}
                         >
                           Remove
+                        </button> */}                     
+                        <button
+                        className="RemoveBtn"
+                        title="Remove this redaction"
+                        aria-label="Remove this redaction"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onRemoveHighlight(item);
+                        }}
+                        >
+                        <DeleteRegular style={{ fontSize: 14, lineHeight: 1, verticalAlign: "middle" }} />
                         </button>
                       </div>
                     </label>

@@ -162,7 +162,7 @@
   background: transparent;
   border: none;
   color: #d92d20;
-  font-size: 12px;
+  font-size: 14px;
   padding: 0;
   cursor: pointer;
   text-decoration: none;
@@ -171,3 +171,11 @@
   color: #b42318;
   text-decoration: underline;
 }
+
+
+.RemoveLink .ms-Icon {
+  font-size: 14px;           /* size the glyph */
+  line-height: 1;
+  vertical-align: middle;
+}
+
