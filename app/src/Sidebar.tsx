@@ -7,8 +7,12 @@ import {
   Dialog,
   DialogType,
   DialogFooter,
+  IconButton,
+  ActionButton,
+  TooltipHost,
+  ITooltipHostStyles,
 } from "@fluentui/react";
-import { DeleteRegular } from "@fluentui/react-icons";
+// import { DeleteRegular } from "@fluentui/react-icons";
 import { CommentedHighlight } from "./types";
 
 /* =========================
@@ -59,6 +63,26 @@ const getDisplayLabel = (h: CommentedHighlight) => {
   if (t && t.length > 0) return t;
   const pg = h.position?.boundingRect?.pageNumber;
   return `(No text)${pg ? ` — Page ${pg}` : ""}`;
+};
+
+/* =======================
+    Style
+========================== */
+
+
+const sidebarButtonStyles = {
+  compactPrimary: { root: { height: 28, padding: "0 8px" } },
+  compactAction: { root: { height: 28, padding: "0 6px", minWidth: 0 } },
+  compactIcon: { 
+    root: { height: 28, width: 28, padding: 0 },
+    rootHovered: { background: "rgba(0,0,0,0.04)" },
+    rootPressed: { background: "rgba(0,0,0,0.08)" },
+  },
+  dangerIcon: {
+    root: { color: "#a80000" },
+    rootHovered: { background: "rgba(168,0,0,0.08)" },
+    rootPressed: { background: "rgba(168,0,0,0.16)" },
+  },
 };
 
 /* =========================
@@ -279,7 +303,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
               <span style={{ flex: 1 }} />
 
               {/* Apply all */}
-              <button
+              {/* <button
                 className="ApplyAllBtn"
                 title="Apply this redaction to all instances of this text"
                 onClick={(e) => {
@@ -290,10 +314,26 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                 style={{ marginRight: 8 }}
               >
                 Apply all
-              </button>
+              </button> */}
+              
+              {/* Apply all — Fluent UI, compact */}
+              <ActionButton
+                styles={sidebarButtonStyles.compactAction}
+                iconProps={{ iconName: "CheckMark" }}
+                title="Apply this redaction to all instances of this text"
+                aria-label={`Apply all redactions for ${group.label}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onApplyAllGroup(group.items);
+                }}
+                style={{ marginRight: 6 }}
+              >
+                Apply To All
+              </ActionButton>
 
               {/* Remove all (with Fluent dialog) */}
-              <button
+              {/* <button
                 className="RemoveLink"
                 title="Remove all redactions in this group"
                 aria-label="Remove all redactions in this group"
@@ -305,7 +345,27 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
               >
                 <DeleteRegular style={{ fontSize: 18 }} />
               </button>
-            </div>
+            */}
+            
+            <TooltipHost
+              content="Remove all redactions in this group"
+              styles={{ root: { display: "inline-flex" } } as ITooltipHostStyles}
+            >
+              <IconButton
+                aria-label="Remove all redactions in this group"
+                title="Remove all redactions in this group"
+                styles={{ ...sidebarButtonStyles.compactIcon, ...sidebarButtonStyles.dangerIcon }}
+                iconProps={{ iconName: "Delete" }}
+                // If you prefer the modern Fluent 2 icon component rather than iconProps:
+                // onRenderIcon={() => <DeleteRegular style={{ fontSize: 16 }} />}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openConfirmGroup(group);
+                }}
+              />
+            </TooltipHost>
+            </div> 
 
             {/* Expanded items */}
             {expanded[group.key] && (
@@ -336,7 +396,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
 
                         <span style={{ flex: 1 }} />
 
-                        <button
+                        {/* <button
                           className="RemoveBtn"
                           title="Remove this redaction"
                           aria-label="Remove this redaction"
@@ -347,7 +407,24 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                           }}
                         >
                           <DeleteRegular style={{ fontSize: 14 }} />
-                        </button>
+                        </button> */}
+                        
+                        <TooltipHost content="Remove this redaction">
+                          <IconButton
+                            aria-label="Remove this redaction"
+                            title="Remove this redaction"
+                            styles={{ ...sidebarButtonStyles.compactIcon, ...sidebarButtonStyles.dangerIcon }}
+                            iconProps={{ iconName: "Delete" }}
+                            // Or use the modern icon:
+                            // onRenderIcon={() => <DeleteRegular style={{ fontSize: 14 }} />}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onRemoveHighlight(item);
+                            }}
+                          />
+                        </TooltipHost>
+
                       </div>
                     </label>
                   );
@@ -521,6 +598,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {/* Delete button */}
                     <DefaultButton
                     iconProps={{ iconName: "Delete" }}
+                    title="Remove this document"
                     styles={{ root: { minWidth: 32, padding: 0 } }}
                     onClick={(e) => {
                         e.stopPropagation();
