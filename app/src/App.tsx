@@ -1636,6 +1636,20 @@ const App: React.FC = () => {
     [applyToAllOccurrences]
   );
 
+  
+  const removePdf = async (id: string) => {
+    // remove from IndexedDB
+    await db.pdfs.delete(id);
+
+    // remove from state
+    setUploadedPdfs((prev) => prev.filter((p) => p.id !== id));
+
+    // clear selection if needed
+    if (currentPdfId === id) {
+      setCurrentPdfId(null);
+    }
+  };
+
   /* =========================
      INFO MODAL & History UI
      ========================= */
@@ -1652,6 +1666,7 @@ const App: React.FC = () => {
         currentHighlights={currentHighlights}
         toggleHighlightCheckbox={toggleHighlightCheckbox}
         handlePdfUpload={handlePdfUpload}
+        removePdf={removePdf}
         onApplyAllGroup={onApplyAllGroup}
         onRemoveHighlight={onRemoveHighlight}
         onRemoveGroup={onRemoveGroup}

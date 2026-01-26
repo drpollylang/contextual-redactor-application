@@ -25,6 +25,7 @@ interface SidebarProps {
   toggleHighlightCheckbox: (highlight: CommentedHighlight, checked: boolean) => void;
 
   handlePdfUpload: (file: File) => void;
+  removePdf: (id: string) => void;
 
   onApplyAllGroup: (items: CommentedHighlight[]) => void;
   onRemoveHighlight: (highlight: CommentedHighlight) => void;
@@ -393,6 +394,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentHighlights,
   toggleHighlightCheckbox,
   handlePdfUpload,
+  removePdf,
 
   onApplyAllGroup,
   onRemoveHighlight,
@@ -409,6 +411,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     documents: true,
     highlights: true,
   });
+
+    // Delete single document dialog
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [pendingDoc, setPendingDoc] =
+    useState<{ id: string; name: string } | null>(null);
+
+    const openDeleteDialog = (doc: { id: string; name: string }) => {
+    setPendingDoc(doc);
+    setConfirmDeleteOpen(true);
+    };
+
+    const closeDeleteDialog = () => {
+    setPendingDoc(null);
+    setConfirmDeleteOpen(false);
+    };
+
+    const confirmDeleteDocument = () => {
+    if (pendingDoc) {
+        removePdf(pendingDoc.id);
+    }
+    closeDeleteDialog();
+    };
 
   // Fluent UI dialog state for the "Delete ALL & Clear History" confirmation
   const [confirmResetAllOpen, setConfirmResetAllOpen] = useState(false);
@@ -467,14 +491,43 @@ const Sidebar: React.FC<SidebarProps> = ({
               uploadedPdfs.map((doc) => {
                 const active = doc.id === currentPdfId;
                 return (
-                  <div
+                //   <div
+                //     key={doc.id}
+                //     className={`sidebar-document${active ? " active" : ""}`}
+                //     title={doc.name}
+                //     onClick={() => setCurrentPdfId(doc.id)}
+                //   >
+                //     {doc.name}
+                //   </div>
+                
+                <div
                     key={doc.id}
                     className={`sidebar-document${active ? " active" : ""}`}
                     title={doc.name}
+                    style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    }}
+                >
+                    {/* Clicking name = open PDF */}
+                    <div
+                    style={{ flex: 1, cursor: "pointer" }}
                     onClick={() => setCurrentPdfId(doc.id)}
-                  >
+                    >
                     {doc.name}
-                  </div>
+                    </div>
+
+                    {/* Delete button */}
+                    <DefaultButton
+                    iconProps={{ iconName: "Delete" }}
+                    styles={{ root: { minWidth: 32, padding: 0 } }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        openDeleteDialog(doc);
+                    }}
+                    />
+                </div>
                 );
               })
             )}
@@ -531,6 +584,25 @@ const Sidebar: React.FC<SidebarProps> = ({
           Delete All Redactions & Clear History
         </button>
       </div>
+
+      {/*Fluent UI Dialog box for removing Documents */}
+      <Dialog
+      hidden={!confirmDeleteOpen}
+      onDismiss={closeDeleteDialog}
+      dialogContentProps={{
+          type: DialogType.normal,
+          title: `Delete this document?`,
+          subText: pendingDoc
+          ? `This will permanently delete "${pendingDoc.name}" and all associated redactions from the app.`
+          : "",
+      }}
+      modalProps={{ isBlocking: true }}
+      >
+      <DialogFooter>
+          <PrimaryButton onClick={confirmDeleteDocument} text="Delete document" />
+          <DefaultButton onClick={closeDeleteDialog} text="Cancel" />
+      </DialogFooter>
+      </Dialog>
 
       {/* Fluent UI v8 Dialog for full reset */}
       <Dialog
