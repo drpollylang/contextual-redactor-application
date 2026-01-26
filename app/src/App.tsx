@@ -54,7 +54,6 @@ const App: React.FC = () => {
   const [uploadedPdfs, setUploadedPdfs] = useState<UploadedPdf[]>([]);
   const [currentPdfId, setCurrentPdfId] = useState<string | null>(null);
 
-  
   // Undo/redo stacks
   const [undoStack, setUndoStack] = useState<
     Array<{ doc: Record<string, CommentedHighlight[]>; all: Record<string, CommentedHighlight[]> }>
@@ -64,7 +63,6 @@ const App: React.FC = () => {
     Array<{ doc: Record<string, CommentedHighlight[]>; all: Record<string, CommentedHighlight[]> }>
   >([]);
 
-  
   const pushUndoState = () => {
     setUndoStack(prev => [
       ...prev,
@@ -96,20 +94,14 @@ const App: React.FC = () => {
       ? uploadedPdfs.find((p) => p.id === currentPdfId) ?? null
       : null;
 
-  
   // ======== Search state ========
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<CommentedHighlight[]>([]);
   const [searchIndex, setSearchIndex] = useState<number>(-1);
 
-  
   const norm = (s?: string | null) =>
     (s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 
-
-  // helper: access PdfHighlighter utils you already keep
-  // const highlighterUtilsRef = useRef<PdfHighlighterUtils | null>(null); // (you already have this)
-  
   useEffect(() => {
     if (!currentPdfId || !searchQuery.trim()) {
       setSearchResults([]);
@@ -131,7 +123,8 @@ const App: React.FC = () => {
     setSearchIndex(results.length > 0 ? 0 : -1);
   }, [searchQuery, currentPdfId, allHighlights]);
 
-  
+  const highlighterUtilsRef = useRef<PdfHighlighterUtils | null>(null);
+
   const scrollToSearchIndex = (idx: number) => {
     if (!currentPdfId || idx < 0 || idx >= searchResults.length) return;
     const target = searchResults[idx];
@@ -140,7 +133,6 @@ const App: React.FC = () => {
     }
   };
 
-  
   const searchNext = () => {
     if (searchResults.length === 0) return;
     setSearchIndex(prev => {
@@ -166,7 +158,6 @@ const App: React.FC = () => {
     setSearchIndex(-1);
   };
 
-  
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // F3 / Shift+F3 for next/prev (like editors)
@@ -179,7 +170,6 @@ const App: React.FC = () => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [searchResults.length]);
-
 
   // === History (debug timeline) ===
   type Snapshot = {
@@ -206,7 +196,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  
+
   const deepCloneRecords = (
     r: Record<string, CommentedHighlight[]>
   ): Record<string, CommentedHighlight[]> =>
@@ -259,7 +249,6 @@ const App: React.FC = () => {
     if (currentPdfId) persistHighlightsToDB(currentPdfId);
   };
 
-  
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "h") {
@@ -275,12 +264,10 @@ const App: React.FC = () => {
   const [zoom, setZoom] = useState<number | null>(null);
   const [highlightPen, setHighlightPen] = useState<boolean>(false);
 
-  
   // 2) Stable toggle handler (flip once)
   const handleToggleHighlightPen = React.useCallback(() => {
     setHighlightPen(v => !v);
   }, []);
-
 
   const [contextMenu, setContextMenu] = useState<ContextMenuProps | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -290,8 +277,6 @@ const App: React.FC = () => {
 
   // Debounced persistence timer
   const highlightWriteTimer = useRef<number | null>(null);
-
-  const highlighterUtilsRef = useRef<PdfHighlighterUtils | null>(null);
 
   // ----- Undo/redo functionality -----
   const undo = () => {
@@ -386,7 +371,6 @@ const App: React.FC = () => {
     window.addEventListener("keydown", onKeyDown, { passive: false });
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [undo, redo]);
-
 
   /* =========================
      Initial restore from DB
@@ -613,13 +597,6 @@ const App: React.FC = () => {
 
     const h: CommentedHighlight = { ...ghost, comment, id: getNextId() };
 
-    // setAllHighlights((prev) => ({
-    //   ...prev,
-    //   [currentPdfId]: [...(prev[currentPdfId] ?? []), h],
-    // }));
-
-    // setCurrentDocHighlights((prev) => [h, ...prev]);
-    
     const nextAll = {
       ...allHighlights,
       [currentPdfId]: [...(allHighlights[currentPdfId] ?? []), h],
@@ -633,7 +610,6 @@ const App: React.FC = () => {
     setDocHighlights(nextDoc);
 
     logHistory("Add highlight", prev, { doc: nextDoc, all: nextAll });
-
 
     persistHighlightsToDB(currentPdfId);
   };
@@ -669,8 +645,6 @@ const App: React.FC = () => {
 
     pushUndoState();
 
-    // setCurrentDocHighlights([]);
-    
     const prev = getSnapshot();
     const nextDoc = { ...docHighlights, [currentPdfId]: [] };
     setDocHighlights(nextDoc);
@@ -687,16 +661,6 @@ const App: React.FC = () => {
 
     pushUndoState();
 
-    // if (checked) {
-    //   setCurrentDocHighlights((prev) =>
-    //     prev.some((h) => h.id === highlight.id) ? prev : [...prev, highlight]
-    //   );
-    // } else {
-    //   setCurrentDocHighlights((prev) =>
-    //     prev.filter((h) => h.id !== highlight.id)
-    //   );
-    // }
-    
     const prev = getSnapshot();
 
     let nextDocArr = docHighlights[currentPdfId] ?? [];
@@ -726,18 +690,6 @@ const App: React.FC = () => {
 
     const id = (h as any).id as string;
 
-    // // Remove from active
-    // setDocHighlights((prev) => {
-    //   const arr = prev[currentPdfId] ?? [];
-    //   return { ...prev, [currentPdfId]: arr.filter((x) => x.id !== id) };
-    // });
-
-    // // Remove from master list
-    // setAllHighlights((prev) => {
-    //   const arr = prev[currentPdfId] ?? [];
-    //   return { ...prev, [currentPdfId]: arr.filter((x) => x.id !== id) };
-    // });
-    
     const prev = getSnapshot();
 
     const nextDoc = {
@@ -757,83 +709,33 @@ const App: React.FC = () => {
     persistHighlightsToDB(currentPdfId);
   };
 
-  // ⬇️ Existing: bulk-activate all items in a text group (adds missing)
-  const onApplyAllGroup = React.useCallback(
-    (items: CommentedHighlight[]) => {
-      if (!currentPdfId) return;
+  // Remove ALL highlights in a group (by id) from active + master + persist
+  const onRemoveGroup = (items: CommentedHighlight[]) => {
+    if (!currentPdfId) return;
 
-      pushUndoState();
+    pushUndoState();
 
-    //   setCurrentDocHighlights((prev) => {
-    //     const existing = new Set(prev.map((h) => h.id));
-    //     const toAdd = items.filter((h) => !existing.has(h.id));
-    //     if (toAdd.length === 0) return prev;
-    //     return [...prev, ...toAdd]; // keep existing order; append missing
-    //   });
-
-    //   if (typeof (persistHighlightsToDB as any) === "function") {
-    //     persistHighlightsToDB(currentPdfId);
-    //   }
-    // },
-    // [currentPdfId]
-    
     const prev = getSnapshot();
 
-    const existing = new Set((docHighlights[currentPdfId] ?? []).map((h) => h.id));
-    const toAdd = items.filter((h) => !existing.has(h.id));
+    const ids = new Set(items.map(i => i.id));
+
     const nextDoc = {
       ...docHighlights,
-      [currentPdfId]: [...(docHighlights[currentPdfId] ?? []), ...toAdd],
+      [currentPdfId]: (docHighlights[currentPdfId] ?? []).filter((x) => !ids.has(x.id)),
+    };
+    const nextAll = {
+      ...allHighlights,
+      [currentPdfId]: (allHighlights[currentPdfId] ?? []).filter((x) => !ids.has(x.id)),
     };
 
     setDocHighlights(nextDoc);
-    // allHighlights unchanged = same reference
-    logHistory("Apply all (group)", prev, { doc: nextDoc, all: allHighlights });
+    setAllHighlights(nextAll);
 
+    logHistory("Remove all (group)", prev, { doc: nextDoc, all: nextAll }, `count=${ids.size}`);
+
+    // Persist
     persistHighlightsToDB(currentPdfId);
-  }, [currentPdfId, docHighlights, allHighlights]
-);
-
-  // Remove ALL highlights in a group (by id) from active + master + persist
-  const onRemoveGroup = (items: CommentedHighlight[]) => {
-  if (!currentPdfId) return;
-
-  pushUndoState();
-
-  const prev = getSnapshot();
-
-  const ids = new Set(items.map(i => i.id));
-
-  // // Remove from active highlights
-  // setDocHighlights(prev => {
-  //     const arr = prev[currentPdfId] ?? [];
-  //     return { ...prev, [currentPdfId]: arr.filter(x => !ids.has(x.id)) };
-  // });
-
-  // // Remove from master list
-  // setAllHighlights(prev => {
-  //     const arr = prev[currentPdfId] ?? [];
-  //     return { ...prev, [currentPdfId]: arr.filter(x => !ids.has(x.id)) };
-  // });
-  
-  const nextDoc = {
-    ...docHighlights,
-    [currentPdfId]: (docHighlights[currentPdfId] ?? []).filter((x) => !ids.has(x.id)),
   };
-  const nextAll = {
-    ...allHighlights,
-    [currentPdfId]: (allHighlights[currentPdfId] ?? []).filter((x) => !ids.has(x.id)),
-  };
-
-  setDocHighlights(nextDoc);
-  setAllHighlights(nextAll);
-
-  logHistory("Remove all (group)", prev, { doc: nextDoc, all: nextAll }, `count=${ids.size}`);
-
-  // Persist
-  persistHighlightsToDB(currentPdfId);
-  };
-
 
   /* =========================
      Edit comment tip
@@ -879,13 +781,13 @@ const App: React.FC = () => {
   /* =========================
      DEV: Inspect what's in Dexie
      ========================= */
-  window.dumpDB = async () => {
+  (window as any).dumpDB = async () => {
     const pdfs = await db.pdfs.toArray();
     const prefs = await db.preferences.toArray();
     console.log({ pdfs, prefs });
   };
 
-  window.flushDBNow = async () => {
+  (window as any).flushDBNow = async () => {
     if (!currentPdfId) {
       console.warn("No currentPdfId");
       return;
@@ -897,7 +799,6 @@ const App: React.FC = () => {
     console.log("[flushDBNow] done");
   };
 
-  
   // ----- Undo/Redo UI state -----
   const canUndo = undoStack.length > 0;
   const canRedo = redoStack.length > 0;
@@ -906,10 +807,766 @@ const App: React.FC = () => {
   const searchTotal = searchResults.length;
   const searchPos = searchIndex >= 0 ? searchIndex + 1 : 0;
 
+  /* =========================================================
+     📚 NEW — PDF.js extraction for Apply To All
+     ========================================================= */
+
+  // Keep a reference to the loaded pdf.js document and cache of page text
+  const pdfDocumentRef = useRef<any | null>(null);
+
+  /**
+   * Cache of text content per page (PDF.js). Keyed by 1-based pageNumber.
+   */
+  // type CachedPageText = {
+  //   pageNumber: number;
+  //   items: Array<{
+  //     str: string;
+  //     transform: number[];
+  //     width: number;
+  //     height: number;
+  //   }>;
+  // };
+    
+  type CachedPageText = {
+    pageNumber: number;
+    items: Array<{
+      str: string;
+      transform: number[];
+      width: number;
+      height: number;
+      fontName?: string;
+    }>;
+    styles?: Record<string, { ascent?: number; descent?: number; fallbackName?: string }>;
+  };
+  const pageTextCacheRef = useRef<Map<number, CachedPageText>>(new Map());
+
+  // Clear per-document cache on document switch
+  useEffect(() => {
+    pageTextCacheRef.current.clear();
+  }, [currentPdfId]);
+
+  /**
+   * Local version of viewportToScaled (aligns with your ../lib/coordinates.ts)
+   */
+  const viewportToScaledLocal = (
+    rect: { left: number; top: number; width: number; height: number; pageNumber: number },
+    viewport: { width: number; height: number }
+  ) => {
+    return {
+      x1: rect.left,
+      y1: rect.top,
+      x2: rect.left + rect.width,
+      y2: rect.top + rect.height,
+      width: viewport.width,
+      height: viewport.height,
+      pageNumber: rect.pageNumber,
+    };
+  };
+
+  /**
+   * Convert a ViewportPosition to ScaledPosition using the PDF.js viewer's viewport.
+   */
+  const viewportPositionToScaledLocal = (
+    vp: { boundingRect: any; rects: any[] },
+    viewer: any
+  ) => {
+    const pageNumber = vp.boundingRect.pageNumber;
+    const viewport = viewer.getPageView(pageNumber - 1).viewport;
+    const scale = (obj: any) => viewportToScaledLocal(obj, viewport);
+    return {
+      boundingRect: scale(vp.boundingRect),
+      rects: (vp.rects || []).map(scale),
+    };
+  };
+
+  /**
+   * Convert a PDF.js text item → viewport rectangle using the viewer's viewport.
+   * Works for horizontal text. For rotated text, PDF.js transform still maps correctly.
+   */
+  // const rectFromTextItem = (
+  //   viewport: any,
+  //   item: { transform: number[]; width: number; height: number }
+  // ) => {
+  //   const [a, b, c, d, e, f] = item.transform;
+  //   const x = e;
+  //   const yTop = f;
+  //   const w = item.width;
+  //   const h = item.height;
+
+  //   // PDF rect: (x, yTop - h) -> (x + w, yTop)
+  //   const [vx1, vy1] = viewport.convertToViewportPoint(x, yTop - h);
+  //   const [vx2, vy2] = viewport.convertToViewportPoint(x + w, yTop);
+
+  //   const left = Math.min(vx1, vx2);
+  //   const top = Math.min(vy1, vy2);
+  //   const width = Math.abs(vx2 - vx1);
+  //   const height = Math.abs(vy2 - vy1);
+
+  //   return { left, top, width, height };
+  // };
+  
+  /**
+   * More precise rectangle using font ascent from textContent.styles (when available).
+   * Falls back to convertToViewportRectangle approach if ascent is unavailable.
+   */
+  // const rectFromTextItem = (
+  //   viewport: any,
+  //   item: { transform: number[]; width: number; height: number; fontName?: string },
+  //   styles?: Record<string, { ascent?: number; descent?: number }>
+  // ) => {
+  //   const [a, b, c, d, e, f] = item.transform;
+  //   const x = e;
+  //   const baselineY = f;
+  //   const w = item.width;
+  //   const h = item.height;
+
+  //   // If we have ascent, compute visual top from baseline:
+  //   const ascent = (item.fontName && styles?.[item.fontName]?.ascent != null)
+  //     ? styles![item.fontName]!.ascent!
+  //     : undefined;
+
+  //   if (typeof ascent === "number" && isFinite(ascent)) {
+  //     // glyphTop in PDF space: baseline - ascent * fontSize
+  //     const topPdfY = baselineY - (h * ascent);
+  //     const bottomPdfY = topPdfY - h; // full em box below top; renders well for most fonts
+
+  //     const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle([
+  //       x,          topPdfY,
+  //       x + w,      bottomPdfY
+  //     ]);
+
+  //     const left = Math.min(vx1, vx2);
+  //     const top = Math.min(vy1, vy2);
+  //     const width = Math.abs(vx2 - vx1);
+  //     const height = Math.abs(vy2 - vy1);
+
+  //     return { left, top, width, height };
+  //   }
+
+  //   // Fallback to rectangle based on (baseline, height)
+  //   const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle([
+  //     x,        baselineY,
+  //     x + w,    baselineY - h
+  //   ]);
+
+  //   const left = Math.min(vx1, vx2);
+  //   const top = Math.min(vy1, vy2);
+  //   const width = Math.abs(vx2 - vx1);
+  //   const height = Math.abs(vy2 - vy1);
+
+  //   return { left, top, width, height };
+  // };
+  
+  /**
+   * Robust rectangle from a PDF.js text item.
+   * Uses the text matrix vertical scale (d) for height instead of item.height,
+   * and converts the (top-left, bottom-right) from PDF space into viewport space.
+   */
+  const rectFromTextItem = (
+    viewport: any,
+    item: { transform: number[]; width: number; height: number; fontName?: string },
+    // optional fine-tune in viewport pixels if a tiny nudge is needed
+    fudgePx: number = 0
+  ) => {
+    const [a, b, c, d, e, f] = item.transform;
+
+    // Baseline in PDF user space
+    const baselineX = e;
+    const baselineY = f;
+
+    // Use vertical scale from text matrix for height; item.height is not always reliable
+    const fontBoxHeight = Math.abs(d); // positive height magnitude
+
+    // In PDF space (Y up), top is baseline - d
+    const topPdfY = baselineY - d;
+    const bottomPdfY = baselineY;
+
+    // Convert rect [(x1,y1)->(x2,y2)] from PDF space to viewport space
+    const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle([
+      baselineX,           topPdfY,           // top-left in PDF space
+      baselineX + item.width, bottomPdfY      // bottom-right in PDF space
+    ]);
+
+    let left = Math.min(vx1, vx2);
+    let top = Math.min(vy1, vy2);
+    let width = Math.abs(vx2 - vx1);
+    let height = Math.abs(vy2 - vy1);
+
+    // Optional: tiny upward nudge if your theme/opacity makes it look a hair low.
+    if (fudgePx !== 0) {
+      top -= fudgePx;
+    }
+
+    return { left, top, width, height };
+  };
+
+  /**
+   * Load & cache PDF.js text items for a page.
+   */
+  // const getPageTextCached = async (pageNumber: number): Promise<CachedPageText | null> => {
+  //   const pdf = pdfDocumentRef.current;
+  //   if (!pdf) return null;
+
+  //   const cached = pageTextCacheRef.current.get(pageNumber);
+  //   if (cached) return cached;
+
+  //   const page = await pdf.getPage(pageNumber);
+  //   const textContent = await page.getTextContent();
+  //   const items = textContent.items.map((it: any) => ({
+  //     str: it.str,
+  //     transform: it.transform,
+  //     width: it.width,
+  //     height: it.height,
+  //   }));
+
+  //   const packed: CachedPageText = { pageNumber, items };
+  //   pageTextCacheRef.current.set(pageNumber, packed);
+  //   return packed;
+  // };
+
+  /**
+   * Compute viewport-relative rect (left/top/width/height) for a DOM element
+   * inside the PDF.js page view. We measure relative to the page's canvas layer.
+   */
+  const rectFromTextDiv = (textDiv: HTMLElement, pageView: any) => {
+    const pageDiv = pageView.div as HTMLElement; // page container (positioned)
+    const pageBox = pageDiv.getBoundingClientRect();
+    const divBox = textDiv.getBoundingClientRect();
+
+    const left = divBox.left - pageBox.left;
+    const top = divBox.top - pageBox.top;
+    const width = divBox.width;
+    const height = divBox.height;
+
+    return { left, top, width, height };
+  };
+
+  const getPageTextCached = async (pageNumber: number): Promise<CachedPageText | null> => {
+    const pdf = pdfDocumentRef.current;
+    if (!pdf) return null;
+
+    const cached = pageTextCacheRef.current.get(pageNumber);
+    if (cached) return cached;
+
+    const page = await pdf.getPage(pageNumber);
+    const textContent = await page.getTextContent();
+    const items = textContent.items.map((it: any) => ({
+      str: it.str,
+      transform: it.transform,
+      width: it.width,
+      height: it.height,
+      fontName: it.fontName, // <-- keep fontName to look up ascent
+    }));
+
+    const packed: CachedPageText = { pageNumber, items, styles: textContent.styles };
+    pageTextCacheRef.current.set(pageNumber, packed);
+    return packed;
+  };
+
+  /**
+   * Find occurrences of `needle` across all pages using PDF.js text content.
+   * Returns ScaledPosition-ready occurrences for direct use when creating highlights.
+   * NOTE: per text-item granularity — good for most PDFs. Span-aware matching can be added later.
+   */
+  // const findOccurrencesUsingPdfjs = async (needle: string) => {
+  //   const viewer = highlighterUtilsRef.current?.getViewer?.();
+  //   const pdf = pdfDocumentRef.current;
+  //   if (!viewer || !pdf) return [];
+
+  //   const q = needle.trim();
+  //   if (!q) return [];
+
+  //   const qLower = q.toLowerCase();
+
+  //   const numPages = pdf.numPages as number;
+  //   const results: Array<{
+  //     position: {
+  //       boundingRect: any;
+  //       rects: any[];
+  //     };
+  //     content: { text: string };
+  //   }> = [];
+
+  //   for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
+  //     const pageData = await getPageTextCached(pageNumber);
+  //     if (!pageData) continue;
+
+  //     const { items } = pageData;
+  //     const pageViewport = viewer.getPageView(pageNumber - 1).viewport;
+
+  //     for (const item of items) {
+  //       const text = (item.str ?? "").trim();
+  //       if (!text) continue;
+
+  //       if (text.toLowerCase().includes(qLower)) {
+  //         // const rect = rectFromTextItem(pageViewport, item);
+  //         const rect = rectFromTextItemWithAscent(pageViewport, item, pageData.styles, 0.9);
+  //         const vp = {
+  //           boundingRect: { ...rect, pageNumber },
+  //           rects: [{ ...rect, pageNumber }],
+  //         };
+  //         const scaled = viewportPositionToScaledLocal(vp, viewer);
+
+  //         results.push({
+  //           position: scaled,
+  //           content: { text },
+  //         });
+  //       }
+  //     }
+  //   }
+
+  //   return results;
+  // };
+
+  
+  /**
+   * Iterate text nodes under an element in document order.
+   */
+  const getTextNodesIn = (el: Node): Text[] => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    const nodes: Text[] = [];
+    let n: Node | null;
+    while ((n = walker.nextNode())) nodes.push(n as Text);
+    return nodes;
+  };
+
+  /**
+   * Map a global character offset (within el.textContent) to a {node, offset}.
+   * Returns null if the offset falls outside all nodes (very rare).
+   */
+  const resolveNodeOffset = (
+    rootEl: HTMLElement,
+    globalOffset: number
+  ): { node: Text; offset: number } | null => {
+    const nodes = getTextNodesIn(rootEl);
+    let acc = 0;
+    for (const node of nodes) {
+      const len = node.nodeValue?.length ?? 0;
+      if (globalOffset <= acc + len) {
+        return { node, offset: globalOffset - acc };
+      }
+      acc += len;
+    }
+    return null;
+  };
+
+  /**
+   * ASCII-friendly word char check. For broader Unicode word boundaries, you can
+   * switch to /\p{L}|\p{N}|_/u with the 'u' flag, but browser support varies.
+   */
+  const isWordChar = (ch: string) => /[A-Za-z0-9_]/.test(ch);
+
+  const isWholeWordAt = (text: string, start: number, len: number) => {
+    const prev = start - 1;
+    const next = start + len;
+    const leftOk = prev < 0 || !isWordChar(text[prev]);
+    const rightOk = next >= text.length || !isWordChar(text[next]);
+    return leftOk && rightOk;
+  };
+
+  
+  // Round to improve equivalence for nearly-identical float positions
+  const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+  const posKey = (p: any) => {
+    // p is ScaledPosition
+    const b = p?.boundingRect;
+    if (!b) return "";
+    return [
+      b.pageNumber,
+      round3(b.x1),
+      round3(b.y1),
+      round3(b.x2),
+      round3(b.y2),
+      // if you ever use usePdfCoordinates, include it in the key:
+      p.usePdfCoordinates ? "pdf" : "vp"
+    ].join(":");
+  };
+
+
+  /**
+   * DOM-first search: prefer the PDF.js text layer spans (textDivs) for perfect
+   * visual alignment, fallback to getTextContent() if textDivs aren't ready.
+   * Returns scaled positions directly (compatible with your ScaledPosition).
+   */
+  const findOccurrencesUsingPdfjs = async (needle: string) => {
+    const viewer = highlighterUtilsRef.current?.getViewer?.();
+    const pdf = pdfDocumentRef.current;
+    if (!viewer || !pdf) return [];
+
+    const q = needle.trim();
+    if (!q) return [];
+
+    const qLower = q.toLowerCase();
+    const numPages = pdf.numPages as number;
+
+    type Found = {
+      position: {
+        boundingRect: any;
+        rects: any[];
+      };
+      content: { text: string };
+    };
+
+    const results: Found[] = [];
+
+    // helper to convert viewport rect → scaled using your viewer’s viewport
+    const toScaled = (vpRect: { left: number; top: number; width: number; height: number; pageNumber: number }) => {
+      const pageNumber = vpRect.pageNumber;
+      const pageViewport = viewer.getPageView(pageNumber - 1).viewport;
+      const scaled = {
+        x1: vpRect.left,
+        y1: vpRect.top,
+        x2: vpRect.left + vpRect.width,
+        y2: vpRect.top + vpRect.height,
+        width: pageViewport.width,
+        height: pageViewport.height,
+        pageNumber
+      };
+      return scaled;
+    };
+
+    for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
+      const pageView = viewer.getPageView(pageNumber - 1);
+      const pageViewport = pageView?.viewport;
+
+      // ---- 1) Try DOM-based textDivs first
+      // pdf.js >=3 exposes text layer API; property names can vary by version:
+      // - pageView.textLayer?.textDivs (v3/v4)
+      // - pageView.textLayer?.div?.querySelectorAll('span')
+      // const textLayer: any = (pageView as any)?.textLayer;
+      // let usedDom = false;
+
+      // // if (textLayer) {
+      // //   const textDivs: HTMLElement[] =
+      // //     (textLayer.textDivs as HTMLElement[]) ||
+      // //     Array.from((textLayer.div as HTMLElement)?.querySelectorAll("span") ?? []);
+
+      // //   if (textDivs && textDivs.length > 0) {
+      // //     usedDom = true;
+      // //     for (const div of textDivs) {
+      // //       const text = (div.textContent ?? "").trim();
+      // //       if (!text) continue;
+      // //       if (text.toLowerCase().includes(qLower)) {
+      // //         const rect = rectFromTextDiv(div, pageView); // viewport pixels
+      // //         const vp = {
+      // //           boundingRect: { ...rect, pageNumber },
+      // //           rects: [{ ...rect, pageNumber }],
+      // //         };
+      // //         results.push({
+      // //           position: {
+      // //             boundingRect: toScaled(vp.boundingRect),
+      // //             rects: vp.rects.map(toScaled),
+      // //           },
+      // //           content: { text },
+      // //         });
+      // //       }
+      // //     }
+      // //   }
+      // // }
+      
+      // if (textLayer) {
+      //   const textDivs: HTMLElement[] =
+      //     (textLayer.textDivs as HTMLElement[]) ||
+      //     Array.from((textLayer.div as HTMLElement)?.querySelectorAll("span") ?? []);
+
+      //   if (textDivs && textDivs.length > 0) {
+      //     usedDom = true;
+
+      //     for (const div of textDivs) {
+      //       const fullText = (div.textContent ?? "").trim();
+      //       if (!fullText) continue;
+
+      //       const lower = fullText.toLowerCase();
+      //       let idx = 0;
+
+      //       // Find all occurrences inside this div
+      //       while ((idx = lower.indexOf(qLower, idx)) !== -1) {
+      //         // --- Measure substring width ---
+      //         const range = document.createRange();
+      //         range.setStart(div.firstChild!, idx);
+      //         range.setEnd(div.firstChild!, idx + q.length);
+
+      //         const rect = range.getBoundingClientRect();
+
+      //         // Locate page top-left to make rect relative to page
+      //         const pageDiv = pageView.div as HTMLElement;
+      //         const pageBox = pageDiv.getBoundingClientRect();
+
+      //         const vpRect = {
+      //           left: rect.left - pageBox.left,
+      //           top: rect.top - pageBox.top,
+      //           width: rect.width,
+      //           height: rect.height,
+      //           pageNumber
+      //         };
+
+      //         // Convert to scaled
+      //         const scaledBounding = toScaled(vpRect);
+
+      //         results.push({
+      //           position: {
+      //             boundingRect: scaledBounding,
+      //             rects: [scaledBounding]
+      //           },
+      //           content: { text: fullText.substr(idx, q.length) }
+      //         });
+
+      //         idx += q.length; // continue searching further occurrences in same div
+      //       }
+      //     }
+      //   }
+      // }
+
+      // ---- 1) Try DOM-based textDivs first (precise substring rectangles)
+      const textLayer: any = (pageView as any)?.textLayer;
+      let usedDom = false;
+
+      if (textLayer) {
+        const textDivs: HTMLElement[] =
+          (textLayer.textDivs as HTMLElement[]) ||
+          Array.from((textLayer.div as HTMLElement)?.querySelectorAll("span") ?? []);
+
+        if (textDivs && textDivs.length > 0) {
+          usedDom = true;
+
+          for (const div of textDivs) {
+            // IMPORTANT: do not trim; indices must match DOM text nodes
+            const fullText = div.textContent ?? "";
+            if (!fullText) continue;
+
+            const lower = fullText.toLowerCase();
+            const target = qLower; // from outer scope
+            let from = 0;
+
+            while (from <= lower.length - target.length) {
+              const idx = lower.indexOf(target, from);
+              if (idx === -1) break;
+
+              // OPTIONAL: require whole-word boundaries
+              const requireWholeWord = false; // set true if you ONLY want whole words
+              if (!requireWholeWord || isWholeWordAt(fullText, idx, target.length)) {
+                // Map global (div-level) offsets to actual (node, offset)
+                const startLoc = resolveNodeOffset(div, idx);
+                const endLoc = resolveNodeOffset(div, idx + target.length);
+                if (startLoc && endLoc) {
+                  const range = document.createRange();
+                  range.setStart(startLoc.node, startLoc.offset);
+                  range.setEnd(endLoc.node, endLoc.offset);
+
+                  // Measure substring box relative to page
+                  const rect = range.getBoundingClientRect();
+                  const pageDiv = pageView.div as HTMLElement;
+                  const pageBox = pageDiv.getBoundingClientRect();
+
+                  const vpRect = {
+                    left: rect.left - pageBox.left,
+                    top: rect.top - pageBox.top,
+                    width: rect.width,
+                    height: rect.height,
+                    pageNumber
+                  };
+
+                  // Convert to scaled using your viewer's viewport
+                  const pageViewport = pageView.viewport;
+                  const scaled = {
+                    x1: vpRect.left,
+                    y1: vpRect.top,
+                    x2: vpRect.left + vpRect.width,
+                    y2: vpRect.top + vpRect.height,
+                    width: pageViewport.width,
+                    height: pageViewport.height,
+                    pageNumber
+                  };
+
+                  results.push({
+                    position: {
+                      boundingRect: scaled,
+                      rects: [scaled]
+                    },
+                    content: { text: fullText.substr(idx, target.length) }
+                  });
+                }
+              }
+
+              from = idx + target.length; // continue after this match
+            }
+          }
+        }
+      }
+
+      // ---- 2) Fallback: matrix-based extraction if DOM layer not ready
+      if (!usedDom) {
+        // Use cached textContent items
+        const pageData = await getPageTextCached(pageNumber);
+        if (!pageData) continue;
+
+        for (const item of pageData.items) {
+          const text = (item.str ?? "").trim();
+          if (!text) continue;
+
+          if (text.toLowerCase().includes(qLower)) {
+            const rect = rectFromTextItem(pageViewport, item);
+            const vp = {
+              boundingRect: { ...rect, pageNumber },
+              rects: [{ ...rect, pageNumber }],
+            };
+            results.push({
+              position: {
+                boundingRect: toScaled(vp.boundingRect),
+                rects: vp.rects.map(toScaled),
+              },
+              content: { text },
+            });
+          }
+        }
+      }
+    }
+
+    return results;
+  };
+
+  
+  type TextStyles = Record<string, { ascent?: number; descent?: number; fallbackName?: string }>;
+
+  const rectFromTextItemWithAscent = (
+    viewport: any,
+    item: { transform: number[]; width: number; height: number; fontName?: string },
+    styles?: TextStyles,
+    fudgePx: number = 0
+  ) => {
+    const [a, b, c, d, e, f] = item.transform;
+    const baselineX = e;
+    const baselineY = f;
+    const w = item.width;
+
+    const ascent = item.fontName && styles?.[item.fontName]?.ascent;
+
+    if (typeof ascent === "number" && isFinite(ascent)) {
+      const topPdfY = baselineY - (Math.abs(d) * ascent);
+      const bottomPdfY = topPdfY + Math.abs(d);
+
+      const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle([
+        baselineX,         topPdfY,
+        baselineX + w,     bottomPdfY
+      ]);
+
+      let left = Math.min(vx1, vx2);
+      let top = Math.min(vy1, vy2);
+      const width = Math.abs(vx2 - vx1);
+      const height = Math.abs(vy2 - vy1);
+      if (fudgePx) top -= fudgePx;
+
+      return { left, top, width, height };
+    }
+
+    // Fallback to matrix-based version if no ascent
+    return rectFromTextItem(viewport, item, fudgePx);
+  };
+
+
+  /**
+   * Apply-to-all via PDF.js: find all occurrences of `text`, create highlights for missing ones,
+   * and add them to both master list and active list.
+   */
+  const applyToAllOccurrences = React.useCallback(
+    async (text: string) => {
+      if (!currentPdfId) return;
+
+      const clean = text.trim();
+      if (!clean) return;
+
+      const occurrences = await findOccurrencesUsingPdfjs(clean);
+      if (!occurrences || occurrences.length === 0) return;
+
+      pushUndoState();
+      const prev = getSnapshot();
+
+      // Consider an existing occurrence the "same" if position (geometry) matches.
+      // const existingPos = new Set(
+      //   (allHighlights[currentPdfId] ?? [])
+      //     .filter(h => (h.content?.text ?? "").trim().toLowerCase() === clean.toLowerCase())
+      //     .map(h => JSON.stringify(h.position))
+      // );
+
+      // const newItems: CommentedHighlight[] = occurrences
+      //   .filter(o => !existingPos.has(JSON.stringify(o.position)))
+      //   .map(o => ({
+      //     id: getNextId(),
+      //     comment: "",
+      //     content: { text: clean },
+      //     position: o.position as any, // ScaledPosition-compatible
+      //   }));
+      
+      const existingPos = new Set(
+        (allHighlights[currentPdfId] ?? [])
+          .filter(h => (h.content?.text ?? "").trim().toLowerCase() === clean.toLowerCase())
+          .map(h => posKey(h.position))
+      );
+
+      // Also dedupe within this run
+      const seenNew = new Set<string>();
+
+      const newItems: CommentedHighlight[] = [];
+      for (const o of occurrences) {
+        const key = posKey(o.position);
+        if (!key) continue;
+        if (existingPos.has(key)) continue; // already in master list
+        if (seenNew.has(key)) continue;     // duplicate within this run
+        seenNew.add(key);
+
+        newItems.push({
+          id: getNextId(),
+          comment: "",
+          content: { text: clean },
+          position: o.position as any,
+        });
+      }
+
+      if (newItems.length === 0) return;
+
+      // Update master + active
+      const nextAll = {
+        ...allHighlights,
+        [currentPdfId]: [...(allHighlights[currentPdfId] ?? []), ...newItems],
+      };
+      const nextDoc = {
+        ...docHighlights,
+        [currentPdfId]: [...(docHighlights[currentPdfId] ?? []), ...newItems],
+      };
+
+      setAllHighlights(nextAll);
+      setDocHighlights(nextDoc);
+
+      logHistory(
+        "Apply To All (PDF.js search)",
+        prev,
+        { doc: nextDoc, all: nextAll },
+        `added=${newItems.length}`
+      );
+
+      persistHighlightsToDB(currentPdfId);
+    },
+    [currentPdfId, allHighlights, docHighlights]
+  );
+
+  // ⬇️ Existing: bulk-activate or apply all for a group -> now forwards to full document search
+  const onApplyAllGroup = React.useCallback(
+    (items: CommentedHighlight[]) => {
+      if (!items || items.length === 0) return;
+      const sample = items[0];
+      const text = sample.content?.text ?? "";
+      if (!text.trim()) return;
+      void applyToAllOccurrences(text);
+    },
+    [applyToAllOccurrences]
+  );
 
   /* =========================
-     Render
+     INFO MODAL & History UI
      ========================= */
+
+  // ----- Render -----
   return (
     <div className="App" style={{ display: "flex", height: "100vh" }}>
       {/* SIDEBAR */}
@@ -923,7 +1580,7 @@ const App: React.FC = () => {
         handlePdfUpload={handlePdfUpload}
         onApplyAllGroup={onApplyAllGroup}
         onRemoveHighlight={onRemoveHighlight}
-        onRemoveGroup={onRemoveGroup} 
+        onRemoveGroup={onRemoveGroup}
         highlights={currentHighlights}
         resetHighlights={resetHighlights}
         toggleDocument={() => {}}
@@ -944,7 +1601,7 @@ const App: React.FC = () => {
           setPdfScaleValue={setZoom}
           toggleHighlightPen={() => setHighlightPen(!highlightPen)}
           undo={undo}
-          redo={redo} 
+          redo={redo}
           canUndo={canUndo}
           canRedo={canRedo}
           onShowInfo={() => setShowInfoModal(true)}
@@ -955,7 +1612,7 @@ const App: React.FC = () => {
           onClearSearch={clearSearch}
           searchPos={searchPos}
           searchTotal={searchTotal}
-          onToggleHistory={() => setShowHistory((v) => !v)} 
+          onToggleHistory={() => setShowHistory((v) => !v)}
         />
 
         {!currentPdf ? (
@@ -973,37 +1630,42 @@ const App: React.FC = () => {
           </div>
         ) : (
           <PdfLoader document={currentPdf.url}>
-            {(pdfDocument) => (
-              <PdfHighlighter
-                enableAreaSelection={(event) => event.altKey}
-                pdfDocument={pdfDocument}
-                onScrollAway={resetHash}
-                utilsRef={(utils) => {
-                  highlighterUtilsRef.current = utils;
-                }}
-                pdfScaleValue={zoom ?? undefined}
-                textSelectionColor={
-                  highlightPen ? "rgba(255, 226, 143, 1)" : undefined
-                }
-                onSelection={
-                  highlightPen
-                    ? (sel) => addHighlight(sel.makeGhostHighlight(), "")
-                    : undefined
-                }
-                selectionTip={
-                  highlightPen ? undefined : (
-                    <ExpandableTip addHighlight={addHighlight} />
-                  )
-                }
-                highlights={currentHighlights}
-                style={{ height: "calc(100% - 41px)" }}
-              >
-                <HighlightContainer
-                  editHighlight={editHighlight}
-                  onContextMenu={handleContextMenu}
-                />
-              </PdfHighlighter>
-            )}
+            {(pdfDocument) => {
+              // 🔗 Capture pdf.js document for PDF.js search & extraction
+              pdfDocumentRef.current = pdfDocument;
+
+              return (
+                <PdfHighlighter
+                  enableAreaSelection={(event) => event.altKey}
+                  pdfDocument={pdfDocument}
+                  onScrollAway={resetHash}
+                  utilsRef={(utils) => {
+                    highlighterUtilsRef.current = utils;
+                  }}
+                  pdfScaleValue={zoom ?? undefined}
+                  textSelectionColor={
+                    highlightPen ? "rgba(255, 226, 143, 1)" : undefined
+                  }
+                  onSelection={
+                    highlightPen
+                      ? (sel) => addHighlight(sel.makeGhostHighlight(), "")
+                      : undefined
+                  }
+                  selectionTip={
+                    highlightPen ? undefined : (
+                      <ExpandableTip addHighlight={addHighlight} />
+                    )
+                  }
+                  highlights={currentHighlights}
+                  style={{ height: "calc(100% - 41px)" }}
+                >
+                  <HighlightContainer
+                    editHighlight={editHighlight}
+                    onContextMenu={handleContextMenu}
+                  />
+                </PdfHighlighter>
+              );
+            }}
           </PdfLoader>
         )}
       </div>
@@ -1074,16 +1736,15 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-      
-    {showHistory && (
-      <HistoryTimeline
-        entries={history}
-        currentIndex={historyIndex}
-        onJump={jumpToHistory}
-        onClose={() => setShowHistory(false)}
-      />
-    )}
 
+      {showHistory && (
+        <HistoryTimeline
+          entries={history}
+          currentIndex={historyIndex}
+          onJump={jumpToHistory}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
     </div>
   );
 };

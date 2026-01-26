@@ -324,7 +324,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
             {expanded[group.key] && (
               <div style={{ marginLeft: 28, marginTop: 2 }}>
                 {group.items.map((item, i) => {
-                  const checked = activeSet.has(item.id);
+                  const checked = activeSet.has(item.id);    
 
                   return (
                     <label
