@@ -90,6 +90,7 @@
 
 /* ===== LEGACY BUTTON STYLES (if still used) ===== */
 .sidebar__toggle,
+.sidebar__clear,
 .sidebar__reset {
   width: 100%;
   padding: 0.5rem;
@@ -102,9 +103,11 @@
 }
 
 .sidebar__toggle:hover,
+.sidebar__clear:hover,
 .sidebar__reset:hover {
   background: #dcdcdc;
 }
+
 
 /* ===== SCROLLBAR ===== */
 .sidebar::-webkit-scrollbar,

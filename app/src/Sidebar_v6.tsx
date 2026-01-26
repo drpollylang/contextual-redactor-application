@@ -1,13 +1,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import "./style/Sidebar.css";
-import {
-  DefaultButton,
-  PrimaryButton,
-  Dialog,
-  DialogType,
-  DialogFooter,
-} from "@fluentui/react";
+import { DefaultButton, PrimaryButton } from "@fluentui/react";
 import { DeleteRegular } from "@fluentui/react-icons";
 import { CommentedHighlight } from "./types";
 
@@ -16,34 +10,31 @@ import { CommentedHighlight } from "./types";
 ========================= */
 
 interface SidebarProps {
+  // Documents
   uploadedPdfs: Array<{ id: string; name: string; url: string }>;
   currentPdfId: string | null;
   setCurrentPdfId: (id: string) => void;
 
+  // Redactions / highlights
   allHighlights: Record<string, Array<CommentedHighlight>>;
   currentHighlights: Array<CommentedHighlight>;
   toggleHighlightCheckbox: (highlight: CommentedHighlight, checked: boolean) => void;
 
+  // Upload
   handlePdfUpload: (file: File) => void;
 
+  // Bulk-apply handler
   onApplyAllGroup: (items: CommentedHighlight[]) => void;
-  onRemoveHighlight: (highlight: CommentedHighlight) => void;
 
-  // Remove all items from a specific group
+  // NEW — remove a single highlight entirely
+  onRemoveHighlight: (highlight: CommentedHighlight) => void;
   onRemoveGroup: (items: CommentedHighlight[]) => void;
 
-  // Bulk toggle provided by App (single atomic update)
-  onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
-
-  // Resets active-only
-  resetHighlights: () => void;
-
-  // NEW: full reset (delete all + clear history/undo/redo)
-  resetEverything: () => void;
-
-  // Legacy/misc (not used for rendering lists anymore)
+  // Legacy / misc
   highlights: Array<CommentedHighlight>;
+  resetHighlights: () => void;
   toggleDocument: () => void;
+  onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
 }
 
 /* =========================
@@ -73,6 +64,8 @@ type GroupedRedactionsProps = {
   toggleSingle: (highlight: CommentedHighlight, checked: boolean) => void;
 
   onApplyAllGroup: (items: CommentedHighlight[]) => void;
+
+  // NEW
   onRemoveHighlight: (item: CommentedHighlight) => void;
   onRemoveGroup: (items: CommentedHighlight[]) => void;
 };
@@ -84,7 +77,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
   toggleSingle,
   onApplyAllGroup,
   onRemoveHighlight,
-  onRemoveGroup,
+  onRemoveGroup
 }) => {
   const groups: Group[] = React.useMemo(() => {
     const map = new Map<string, Group>();
@@ -94,13 +87,17 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
       const label = getDisplayLabel(h);
 
       const existing = map.get(key);
-      if (existing) existing.items.push(h);
-      else map.set(key, { key, label, items: [h] });
+      if (existing) {
+        existing.items.push(h);
+      } else {
+        map.set(key, { key, label, items: [h] });
+      }
     }
     return [...map.values()];
   }, [all]);
 
   const activeSet = React.useMemo(() => new Set(active.map((h) => h.id)), [active]);
+
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (key: string) =>
@@ -135,8 +132,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
       }
       if (key === " " || key === "Enter") {
         e.preventDefault();
-        const shouldCheck = group.items.some((it) => !activeSet.has(it.id));
-        onToggleGroup(group.items, shouldCheck);
+        onToggleGroup(group.items, group.items.some((it) => !activeSet.has(it.id)));
       }
       if (key.toLowerCase() === "o") {
         e.preventDefault();
@@ -163,25 +159,6 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
     return () => window.removeEventListener("keydown", handleKey);
   }, [handleKey]);
 
-  // ── NEW: group-level delete confirmation dialog state ──
-  const [confirmGroupOpen, setConfirmGroupOpen] = useState(false);
-  const [pendingGroup, setPendingGroup] = useState<Group | null>(null);
-
-  const openConfirmGroup = (group: Group) => {
-    setPendingGroup(group);
-    setConfirmGroupOpen(true);
-  };
-  const closeConfirmGroup = () => {
-    setConfirmGroupOpen(false);
-    setPendingGroup(null);
-  };
-  const confirmDeleteGroup = () => {
-    if (pendingGroup) {
-      onRemoveGroup(pendingGroup.items);
-    }
-    closeConfirmGroup();
-  };
-
   if (groups.length === 0) {
     return <div style={{ opacity: 0.6 }}>No redactions yet.</div>;
   }
@@ -195,8 +172,11 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
         const isChecked = total > 0 && activeCount === total;
         const isIndeterminate = activeCount > 0 && activeCount < total;
 
+        const setCheckboxRef = (el: HTMLInputElement | null) => {
+          if (el) el.indeterminate = isIndeterminate;
+        };
+
         const focused = index === focusedGroupIndex;
-        const checkboxId = `group-checkbox-${group.key}`;
 
         return (
           <div
@@ -207,117 +187,155 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
               background: focused ? "rgba(0, 120, 212, 0.15)" : "transparent",
             }}
           >
-            {/* Group header row */}
-            <div
-              className="sidebar-highlight-item"
-              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}
-              title={group.label}
-            >
-              {/* Checkbox — not wrapped by label to avoid auto-toggle */}
+            {/* Group Header */}
+            {/* <label className="sidebar-highlight-item" title={group.label}>
               <input
-                id={checkboxId}
+                ref={setCheckboxRef}
                 type="checkbox"
                 checked={isChecked}
-                aria-checked={isIndeterminate ? "mixed" : isChecked}
-                ref={(el) => {
-                  if (el) el.indeterminate = isIndeterminate;
-                }}
-                onClick={(e) => e.stopPropagation()} // not expand/collapse
                 onChange={(e) => onToggleGroup(group.items, e.target.checked)}
               />
-              {/* Optional minimal label to enlarge hit area */}
-              <label
-                htmlFor={checkboxId}
-                onClick={(e) => e.stopPropagation()}
-                style={{ cursor: "pointer", userSelect: "none" }}
-                aria-label={`Select/deselect all for ${group.label}`}
-              />
 
-              {/* Arrow button — expand/collapse only */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleExpand(group.key);
-                }}
-                aria-expanded={!!expanded[group.key]}
-                aria-controls={`group-panel-${group.key}`}
-                className="sidebar-disclosure"
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  padding: 0,
-                  width: 18,
-                }}
-                title={expanded[group.key] ? "Collapse group" : "Expand group"}
+              <div
+                style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                onClick={() => toggleExpand(group.key)}
               >
-                {expanded[group.key] ? "▾" : "▸"}
-              </button>
-
-              {/* Text label — expand/collapse only */}
-              <span
-                className="sidebar-highlight-text"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleExpand(group.key);
-                }}
-                style={{ cursor: "pointer", userSelect: "none" }}
-              >
-                {group.label}
-              </span>
-
-              {total > 1 && (
-                <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2 }}>
-                  ×{total}
+                <span className="sidebar-highlight-text">
+                  {expanded[group.key] ? "▾ " : "▸ "}
+                  {group.label}
                 </span>
-              )}
 
-              <span style={{ flex: 1 }} />
+                {total > 1 && (
+                  <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2, flex: 1 }}>×{total}</span>
+                )}
 
-              {/* Apply all */}
-              <button
+                //  Group-level Apply all
+                <button
+                  className="ApplyAllBtn"
+                  title="Apply this redaction to all instances of this text"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onApplyAllGroup(group.items);
+                  }}
+                >
+                  Apply all
+                </button>
+                <span className="sidebar-main__spacer" style={{ flex: 1 }} />
+                <button
+                className="RemoveLink"
+                style={{ float: "right", paddingRight: 5 }}
+                title="Remove all redactions in this group"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (window.confirm("Remove all redactions in this group? This cannot be undone.")) {
+                        onRemoveGroup(group.items);
+                    }
+                }}
+                >
+                    Remove all
+                </button>
+              </div>
+            </label> */}
+            
+            <label className="sidebar-highlight-item" title={group.label}>
+            <input
+                ref={setCheckboxRef}
+                type="checkbox"
+                checked={isChecked} 
+                aria-checked={isIndeterminate ? "mixed" : isChecked}
+                // prevent expanding/collapsing the group when clicking the checkbox
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onToggleGroup(group.items, e.target.checked)}
+            />
+
+            <div
+                style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                width: "100%",           // ✅ make row span full width
+                }}
+                onClick={() => toggleExpand(group.key)}
+            >
+                <span className="sidebar-highlight-text">
+                {expanded[group.key] ? "▾ " : "▸ "}
+                {group.label}
+                </span>
+
+                {total > 1 && (
+                <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 2 }}>
+                    ×{total}
+                </span>
+                )}
+
+                {/* ✅ Always-present spacer pushes the buttons to the far right */}
+                <span style={{ flex: 1 }} />
+
+                {/* Group-level Apply all */}
+                <button
                 className="ApplyAllBtn"
                 title="Apply this redaction to all instances of this text"
                 onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onApplyAllGroup(group.items);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onApplyAllGroup(group.items);
                 }}
-                style={{ marginRight: 8 }}
-              >
+                style={{ marginRight: 8 }}   // small gap before Remove all
+                >
                 Apply all
-              </button>
+                </button>
 
-              {/* Remove all (with Fluent dialog) */}
-              <button
+                {/* ✅ Group-level Remove all (red text link) */}
+                {/* <button
+                className="RemoveLink"
+                title="Remove all redactions in this group"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (
+                    window.confirm(
+                        "Remove all redactions in this group? This cannot be undone."
+                    )
+                    ) {
+                    onRemoveGroup(group.items);
+                    }
+                }}
+                >
+                Remove all
+                </button> */}  
+                <button
                 className="RemoveLink"
                 title="Remove all redactions in this group"
                 aria-label="Remove all redactions in this group"
                 onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  openConfirmGroup(group);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (window.confirm("Remove all redactions in this group? This cannot be undone.")) {
+                    onRemoveGroup(group.items);
+                    }
                 }}
-              >
-                <DeleteRegular style={{ fontSize: 18 }} />
-              </button>
+                >
+                <DeleteRegular style={{ fontSize: 18, lineHeight: 1, verticalAlign: "middle" }} />
+                </button>
             </div>
+            </label>
+
 
             {/* Expanded items */}
             {expanded[group.key] && (
-              <div id={`group-panel-${group.key}`} style={{ marginLeft: 28, marginTop: 2 }}>
+              <div style={{ marginLeft: 28, marginTop: 2 }}>
                 {group.items.map((item, i) => {
-                  const checked = activeSet.has(item.id);
+                  const checked = activeSet.has(item.id);    
+
                   return (
                     <label
                       key={item.id}
                       className="sidebar-highlight-item"
-                      style={{ padding: "2px 0", alignItems: "center", display: "flex", gap: 8 }}
+                      style={{ padding: "2px 0", alignItems: "center" }}
                       title={item.content?.text}
-                      onClick={(e) => e.stopPropagation()}
                     >
                       <input
                         type="checkbox"
@@ -325,27 +343,36 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                         onChange={(e) => toggleSingle(item, e.target.checked)}
                       />
 
-                      <div
-                        className="sidebar-row__content"
-                        style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}
-                      >
+                      <div className="sidebar-row__content" 
+                        style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, }}>
                         <span className="sidebar-row__title" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
                           Redaction {i + 1} — Page {item.position.boundingRect.pageNumber}
                         </span>
-
-                        <span style={{ flex: 1 }} />
-
-                        <button
+                        <span className="sidebar-row__spacer" style={{ flex: 1 }} />
+                        {/* Remove Button */}
+                        {/* <button
                           className="RemoveBtn"
                           title="Remove this redaction"
-                          aria-label="Remove this redaction"
+                          style={{ float: "right", paddingRight: 5 }}  // ✅ pushes it to the far right
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             onRemoveHighlight(item);
                           }}
                         >
-                          <DeleteRegular style={{ fontSize: 14 }} />
+                          Remove
+                        </button> */}                     
+                        <button
+                        className="RemoveBtn"
+                        title="Remove this redaction"
+                        aria-label="Remove this redaction"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onRemoveHighlight(item);
+                        }}
+                        >
+                        <DeleteRegular style={{ fontSize: 14, lineHeight: 1, verticalAlign: "middle" }} />
                         </button>
                       </div>
                     </label>
@@ -356,27 +383,6 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
           </div>
         );
       })}
-
-      {/* ── Group delete confirmation dialog ── */}
-      <Dialog
-        hidden={!confirmGroupOpen}
-        onDismiss={closeConfirmGroup}
-        dialogContentProps={{
-          type: DialogType.normal,
-          title: `Remove all redactions in this group?`,
-          closeButtonAriaLabel: "Close",
-          subText:
-            pendingGroup
-              ? `This will permanently remove ${pendingGroup.items.length} redaction(s) for “${pendingGroup.label}”.`
-              : "This will permanently remove all redactions in the selected group.",
-        }}
-        modalProps={{ isBlocking: true }}
-      >
-        <DialogFooter>
-          <PrimaryButton onClick={confirmDeleteGroup} text="Remove group" />
-          <DefaultButton onClick={closeConfirmGroup} text="Cancel" />
-        </DialogFooter>
-      </Dialog>
     </div>
   );
 };
@@ -397,24 +403,49 @@ const Sidebar: React.FC<SidebarProps> = ({
   onApplyAllGroup,
   onRemoveHighlight,
   onRemoveGroup,
-  onToggleGroup,
-
   highlights,
   resetHighlights,
-  resetEverything,
   toggleDocument,
+  onToggleGroup
 }) => {
-  // All hooks must be inside the component body
   const [sections, setSections] = useState({
     documents: true,
     highlights: true,
   });
 
-  // Fluent UI dialog state for the "Delete ALL & Clear History" confirmation
-  const [confirmResetAllOpen, setConfirmResetAllOpen] = useState(false);
-
-  const toggleSection = (key: keyof typeof sections) =>
+  const toggleSection = (key: keyof typeof sections) => {
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // const onToggleGroup = useCallback(
+  //   (items: CommentedHighlight[], checked: boolean) => {
+  //     for (const h of items) toggleHighlightCheckbox(h, checked);
+  //   },
+  //   [toggleHighlightCheckbox]
+  // );
+  // const onToggleGroup = useCallback(
+  //   (items: CommentedHighlight[], checked: boolean) => {
+  //     // Active items for the current doc
+  //     const activeIds = new Set(currentHighlights.map(h => h.id));
+
+  //     if (checked) {
+  //       // Turn on only those that are currently off
+  //       for (const h of items) {
+  //         if (!activeIds.has(h.id)) {
+  //           toggleHighlightCheckbox(h, true);
+  //         }
+  //       }
+  //     } else {
+  //       // Turn off only those that are currently on
+  //       for (const h of items) {
+  //         if (activeIds.has(h.id)) {
+  //           toggleHighlightCheckbox(h, false);
+  //         }
+  //       }
+  //     }
+  //   },
+  //   [toggleHighlightCheckbox, currentHighlights]
+  // );
 
   return (
     <div className="sidebar" style={{ width: "25vw", maxWidth: "500px" }}>
@@ -427,13 +458,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Upload */}
-      <div
-        style={{
-          padding: ".5rem",
-          borderBottom: "1px solid #eee",
-          display: "flex",
-          justifyContent: "center",
-        }}
+      <div 
+      // style={{ padding: ".5rem", borderBottom: "1px solid #eee" }}
+       style={{
+        padding: ".5rem",
+        borderBottom: "1px solid #eee",
+        display: "flex",               // ✅ center horizontally
+        justifyContent: "center",
+      }}
       >
         <DefaultButton
           text="Upload PDF"
@@ -452,10 +484,41 @@ const Sidebar: React.FC<SidebarProps> = ({
           }}
         />
       </div>
-
+      
+    {/* <div
+    style={{
+        padding: ".5rem",
+        borderBottom: "1px solid #eee",
+        display: "flex",               // ✅ center horizontally
+        justifyContent: "center",
+    }}
+    >
+    <PrimaryButton
+        text="Upload PDF"
+        iconProps={{ iconName: "Upload" }}
+        onClick={() => document.getElementById("pdf-upload-input")?.click()}
+        ariaLabel="Upload a PDF"
+    />
+    <input
+        id="pdf-upload-input"
+        type="file"
+        accept="application/pdf"
+        style={{ display: "none" }}
+        onChange={(e) => {
+        const f = e.target.files?.[0];
+        if (f) handlePdfUpload(f);
+        e.currentTarget.value = "";
+        }}
+    />
+    </div>
+    */}
+    
       {/* Documents */}
       <div style={{ borderBottom: "1px solid #eee" }}>
-        <div onClick={() => toggleSection("documents")} className="sidebar-section-header">
+        <div
+          onClick={() => toggleSection("documents")}
+          className="sidebar-section-header"
+        >
           Documents {sections.documents ? "▾" : "▸"}
         </div>
 
@@ -484,7 +547,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Redactions */}
       <div style={{ borderBottom: "1px solid #eee" }}>
-        <div onClick={() => toggleSection("highlights")} className="sidebar-section-header">
+        <div
+          onClick={() => toggleSection("highlights")}
+          className="sidebar-section-header"
+        >
           Redactions {sections.highlights ? "▾" : "▸"}
         </div>
 
@@ -500,14 +566,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 toggleSingle={toggleHighlightCheckbox}
                 onApplyAllGroup={onApplyAllGroup}
                 onRemoveHighlight={onRemoveHighlight}
-                onRemoveGroup={onRemoveGroup}
+                onRemoveGroup={onRemoveGroup} 
               />
             )}
           </div>
         )}
       </div>
 
-      {/* Reset (active only) */}
+      {/* Reset */}
       {currentHighlights.length > 0 && (
         <div style={{ padding: ".5rem" }}>
           <button onClick={resetHighlights} className="sidebar__reset">
@@ -515,49 +581,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
       )}
-
-      {/* Delete ALL + Clear History (Fluent UI Dialog) */}
-      <div style={{ padding: ".5rem", marginTop: currentHighlights.length > 0 ? "-0.5rem" : 0 }}>
-        <button
-          onClick={() => setConfirmResetAllOpen(true)}
-          className="sidebar__clear"
-          style={{
-            // backgroundColor: "#b30000",
-            // color: "white",
-            // border: "1px solid #800000",
-            marginTop: "6px",
-          }}
-        >
-          Delete All Redactions & Clear History
-        </button>
-      </div>
-
-      {/* Fluent UI v8 Dialog for full reset */}
-      <Dialog
-        hidden={!confirmResetAllOpen}
-        onDismiss={() => setConfirmResetAllOpen(false)}
-        dialogContentProps={{
-          type: DialogType.normal,
-          title: "Delete All Redactions?",
-          closeButtonAriaLabel: "Close",
-          subText:
-            "This will permanently delete all redactions for this document and clear the entire undo/redo history. This action cannot be undone.",
-        }}
-        modalProps={{
-          isBlocking: true,
-        }}
-      >
-        <DialogFooter>
-          <PrimaryButton
-            onClick={() => {
-              resetEverything();
-              setConfirmResetAllOpen(false);
-            }}
-            text="Delete everything"
-          />
-          <DefaultButton onClick={() => setConfirmResetAllOpen(false)} text="Cancel" />
-        </DialogFooter>
-      </Dialog>
     </div>
   );
 };

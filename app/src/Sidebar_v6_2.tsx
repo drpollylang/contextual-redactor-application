@@ -28,8 +28,6 @@ interface SidebarProps {
 
   onApplyAllGroup: (items: CommentedHighlight[]) => void;
   onRemoveHighlight: (highlight: CommentedHighlight) => void;
-
-  // Remove all items from a specific group
   onRemoveGroup: (items: CommentedHighlight[]) => void;
 
   // Bulk toggle provided by App (single atomic update)
@@ -163,25 +161,6 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
     return () => window.removeEventListener("keydown", handleKey);
   }, [handleKey]);
 
-  // ── NEW: group-level delete confirmation dialog state ──
-  const [confirmGroupOpen, setConfirmGroupOpen] = useState(false);
-  const [pendingGroup, setPendingGroup] = useState<Group | null>(null);
-
-  const openConfirmGroup = (group: Group) => {
-    setPendingGroup(group);
-    setConfirmGroupOpen(true);
-  };
-  const closeConfirmGroup = () => {
-    setConfirmGroupOpen(false);
-    setPendingGroup(null);
-  };
-  const confirmDeleteGroup = () => {
-    if (pendingGroup) {
-      onRemoveGroup(pendingGroup.items);
-    }
-    closeConfirmGroup();
-  };
-
   if (groups.length === 0) {
     return <div style={{ opacity: 0.6 }}>No redactions yet.</div>;
   }
@@ -291,7 +270,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                 Apply all
               </button>
 
-              {/* Remove all (with Fluent dialog) */}
+              {/* Remove all */}
               <button
                 className="RemoveLink"
                 title="Remove all redactions in this group"
@@ -299,7 +278,7 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  openConfirmGroup(group);
+                  onRemoveGroup(group.items);
                 }}
               >
                 <DeleteRegular style={{ fontSize: 18 }} />
@@ -356,27 +335,6 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
           </div>
         );
       })}
-
-      {/* ── Group delete confirmation dialog ── */}
-      <Dialog
-        hidden={!confirmGroupOpen}
-        onDismiss={closeConfirmGroup}
-        dialogContentProps={{
-          type: DialogType.normal,
-          title: `Remove all redactions in this group?`,
-          closeButtonAriaLabel: "Close",
-          subText:
-            pendingGroup
-              ? `This will permanently remove ${pendingGroup.items.length} redaction(s) for “${pendingGroup.label}”.`
-              : "This will permanently remove all redactions in the selected group.",
-        }}
-        modalProps={{ isBlocking: true }}
-      >
-        <DialogFooter>
-          <PrimaryButton onClick={confirmDeleteGroup} text="Remove group" />
-          <DefaultButton onClick={closeConfirmGroup} text="Cancel" />
-        </DialogFooter>
-      </Dialog>
     </div>
   );
 };
@@ -404,7 +362,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   resetEverything,
   toggleDocument,
 }) => {
-  // All hooks must be inside the component body
+  // 🔒 All hooks MUST be inside the component body:
   const [sections, setSections] = useState({
     documents: true,
     highlights: true,
@@ -511,12 +469,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       {currentHighlights.length > 0 && (
         <div style={{ padding: ".5rem" }}>
           <button onClick={resetHighlights} className="sidebar__reset">
-            Reset redactions
+            Reset (Hide) Redactions
           </button>
         </div>
       )}
 
-      {/* Delete ALL + Clear History (Fluent UI Dialog) */}
+      {/* NEW: Delete ALL + Clear History (Fluent UI Dialog) */}
       <div style={{ padding: ".5rem", marginTop: currentHighlights.length > 0 ? "-0.5rem" : 0 }}>
         <button
           onClick={() => setConfirmResetAllOpen(true)}
@@ -532,13 +490,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {/* Fluent UI v8 Dialog for full reset */}
+      {/* Fluent UI v8 Dialog */}
       <Dialog
         hidden={!confirmResetAllOpen}
         onDismiss={() => setConfirmResetAllOpen(false)}
         dialogContentProps={{
           type: DialogType.normal,
-          title: "Delete All Redactions?",
+          title: "Delete ALL redactions?",
           closeButtonAriaLabel: "Close",
           subText:
             "This will permanently delete all redactions for this document and clear the entire undo/redo history. This action cannot be undone.",

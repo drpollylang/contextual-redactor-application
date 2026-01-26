@@ -1117,7 +1117,81 @@ const App: React.FC = () => {
 
   //   return results;
   // };
+  
+  // Bulk toggle a whole group ON/OFF in a single state update
+  const onToggleGroup = React.useCallback(
+    (items: CommentedHighlight[], checked: boolean) => {
+      if (!currentPdfId) return;
 
+      pushUndoState();
+      const prev = getSnapshot();
+
+      const ids = new Set(items.map(i => i.id));
+      const prevActive = docHighlights[currentPdfId] ?? [];
+
+      let nextActive: CommentedHighlight[];
+      if (checked) {
+        // Add any missing items (preserve existing order, append new ones)
+        const existing = new Set(prevActive.map(h => h.id));
+        const toAdd = items.filter(h => !existing.has(h.id));
+        nextActive = [...prevActive, ...toAdd];
+      } else {
+        // Remove all items in the group
+        nextActive = prevActive.filter(h => !ids.has(h.id));
+      }
+
+      const nextDoc = { ...docHighlights, [currentPdfId]: nextActive };
+      setDocHighlights(nextDoc);
+
+      logHistory(
+        `Group toggle (${checked ? "check all" : "uncheck all"})`,
+        prev,
+        { doc: nextDoc, all: allHighlights },
+        `count=${items.length}`
+      );
+
+      persistHighlightsToDB(currentPdfId);
+    },
+    [currentPdfId, docHighlights, allHighlights]
+  );
+
+  /* Delete all redactions/clear undo redo/clear history/clear persistence */
+  const resetEverything = React.useCallback(() => {
+    if (!currentPdfId) return;
+
+    pushUndoState();  // optional — or remove if you *don’t* want this action undoable
+
+    const prev = getSnapshot();
+
+    // Clear all highlights for this PDF
+    const nextDoc = { ...docHighlights, [currentPdfId]: [] };
+    const nextAll = { ...allHighlights, [currentPdfId]: [] };
+
+    setDocHighlights(nextDoc);
+    setAllHighlights(nextAll);
+
+    // Clear history + undo/redo
+    setUndoStack([]);
+    setRedoStack([]);
+    setHistory([]);
+    setHistoryIndex(-1);
+
+    logHistory(
+      "Full reset (delete all redactions + clear history)",
+      prev,
+      { doc: nextDoc, all: nextAll },
+      "Everything cleared"
+    );
+
+    persistHighlightsToDB(currentPdfId);
+  }, [
+    currentPdfId,
+    docHighlights,
+    allHighlights,
+    pushUndoState,
+    getSnapshot,
+    persistHighlightsToDB
+  ]);
   
   /**
    * Iterate text nodes under an element in document order.
@@ -1584,6 +1658,8 @@ const App: React.FC = () => {
         highlights={currentHighlights}
         resetHighlights={resetHighlights}
         toggleDocument={() => {}}
+        onToggleGroup={onToggleGroup}
+        resetEverything={resetEverything}
       />
 
       {/* MAIN VIEW */}
