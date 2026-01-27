@@ -20,7 +20,7 @@
   "scripts": {
     "start": "npm run dev",
     "dev": "(cd ./app && vite --force)",
-    "build": "npm run clean && npm i && npm run build:esm && npm run build:copy-styles && npm run build:build",
+    "build": "npm run clean && npm i && npm run build:esm && npm run build:copy-styles && npm run build:app",
     "build:esm": "tsc",
     "build:copy-styles": "cp -r ./src/style ./dist/esm",
     "build:app": "(cd ./app && tsc && vite build && mkdir \"../public/\" && cp -r app ../public/)",
