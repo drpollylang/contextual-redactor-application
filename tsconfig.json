@@ -15,7 +15,14 @@
     "outDir": "./dist/esm",
     "isolatedModules": true,
     "declaration": true,
-    "skipLibCheck": true // Fixes WeakMap identical type parameter bugs on build
+    "skipLibCheck": true, // Fixes WeakMap identical type parameter bugs on build
+    "paths": {
+      "@components/*": ["src/components/*"],
+      "@contexts/*": ["src/contexts/*"],
+      "@lib/*": ["src/lib/*"],
+      "@style/*": ["src/style/*"],
+      "@types": ["src/types"]
+    }
   },
   "typedocOptions": {
     "entryPoints": ["./src/index.ts"],
@@ -23,5 +30,9 @@
     "plugin": ["typedoc-theme-category-nav"],
     "theme": "navigation"
   },
-  "include": ["./src"]
+  "include": [
+    "./src",
+    "app/src",
+    "src"
+  ]
 }
