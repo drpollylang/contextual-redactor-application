@@ -31,6 +31,8 @@ interface SidebarProps {
   handlePdfUpload: (file: File) => void;
   removePdf: (id: string) => void;
 
+  onFindDuplicates: () => Promise<Array<Array<{ id: string; name: string }>>>;
+
   onApplyAllGroup: (items: CommentedHighlight[]) => void;
   onRemoveHighlight: (highlight: CommentedHighlight) => void;
 
@@ -472,6 +474,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   toggleHighlightCheckbox,
   handlePdfUpload,
   removePdf,
+  onFindDuplicates,
 
   onApplyAllGroup,
   onRemoveHighlight,
@@ -488,6 +491,60 @@ const Sidebar: React.FC<SidebarProps> = ({
     documents: true,
     highlights: true,
   });
+
+    const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+    const [duplicateGroups, setDuplicateGroups] = useState<
+      Array<Array<{ id: string; name: string }>>
+    >([]);
+
+    // Per-group canonical selection (keyed by group index)
+    const [selectedCanonical, setSelectedCanonical] = useState<Record<number, string>>({});
+
+    const chooseCanonical = (groupIndex: number, docId: string) => {
+      setSelectedCanonical((prev) => ({ ...prev, [groupIndex]: docId }));
+    };
+
+    const refreshDuplicateGroups = async () => {
+      const groups = await onFindDuplicates();
+      setDuplicateGroups(groups);
+
+      // Clean up selected canonical for groups that changed size or disappeared
+      setSelectedCanonical((prev) => {
+        const next: Record<number, string> = {};
+        groups.forEach((g, i) => {
+          const keep = prev[i] && g.some((d) => d.id === prev[i]) ? prev[i] : g[0]?.id;
+          if (keep) next[i] = keep;
+        });
+        return next;
+      });
+    };
+
+    const removeAllExceptCanonical = async (group: Array<{ id: string; name: string }>, groupIndex: number) => {
+      if (!group || group.length <= 1) return;
+
+      const keepId = selectedCanonical[groupIndex] ?? group[0].id;
+      const toRemove = group.filter((d) => d.id !== keepId);
+
+      // Remove sequentially (or Promise.all if you prefer)
+      for (const d of toRemove) {
+        await removePdf(d.id);
+      }
+
+      await refreshDuplicateGroups();
+    };
+
+    const removeOneFromGroup = async (docId: string) => {
+      await removePdf(docId);
+      await refreshDuplicateGroups();
+    };
+    // const removeAllExceptCanonical = (group: Array<{ id: string; name: string }>) => {
+    //   if (group.length <= 1) return;
+
+    //   const canonical = group[0]; // first element is canonical
+    //   const duplicates = group.slice(1);
+
+    //   duplicates.forEach(d => removePdf(d.id));
+    // };
 
     // Delete single document dialog
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -609,6 +666,35 @@ const Sidebar: React.FC<SidebarProps> = ({
                 );
               })
             )}
+            {/* <DefaultButton
+              text="Find Duplicate Documents"
+              iconProps={{ iconName: "Search" }}
+              style={{ marginTop: 8, width: "100%" }}
+              onClick={async () => {
+                const groups = await onFindDuplicates();
+                setDuplicateGroups(groups);
+                setDuplicateDialogOpen(true);
+              }}
+            /> */}
+            {/* <DefaultButton
+              text="Find Duplicate Documents"
+              iconProps={{ iconName: "Search" }}
+              style={{ marginTop: 8, width: "100%" }}
+              onClick={async () => {
+                const groups = await onFindDuplicates(); 
+                setDuplicateGroups(groups);
+                setDuplicateDialogOpen(true);
+              }}
+            /> */}
+            <DefaultButton
+              text="Find Duplicate Documents"
+              iconProps={{ iconName: "Search" }}
+              style={{ marginTop: 8, width: "100%" }}
+              onClick={async () => {
+                await refreshDuplicateGroups();
+                setDuplicateDialogOpen(true);
+              }}
+            />
           </div>
         )}
       </div>
@@ -706,6 +792,143 @@ const Sidebar: React.FC<SidebarProps> = ({
             text="Delete everything"
           />
           <DefaultButton onClick={() => setConfirmResetAllOpen(false)} text="Cancel" />
+        </DialogFooter>
+      </Dialog>
+
+      {/* Fluent UI v8 Dialog for document level de-duplication */}
+      <Dialog
+        hidden={!duplicateDialogOpen}
+        onDismiss={() => setDuplicateDialogOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: "Duplicate Documents Detected",
+          subText:
+            duplicateGroups.length === 0
+              ? "No duplicate documents were found."
+              : "These documents have identical file content:"
+        }}
+        modalProps={{ isBlocking: false }}
+      >
+        {duplicateGroups.map((group, idx) => (
+          <div key={idx} style={{ marginBottom: 16 }}>
+            <h4>Duplicate Set {idx + 1}</h4>
+
+            {group.map(doc => (
+              <div
+                key={doc.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "4px 0"
+                }}
+              >
+                <span>{doc.name}</span>
+
+                <DefaultButton
+                  text="Delete"
+                  iconProps={{ iconName: "Delete" }}
+                  styles={{ root: { padding: "0 8px", background: "#fde7e9" } }}
+                  onClick={() => removePdf(doc.id)}
+                />
+              </div>
+            ))}
+
+            <hr style={{ marginTop: 8 }} />
+          </div>
+        ))}
+
+        <DialogFooter>
+          <PrimaryButton text="Close" onClick={() => setDuplicateDialogOpen(false)} />
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        hidden={!duplicateDialogOpen}
+        onDismiss={() => setDuplicateDialogOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: "Duplicate Documents",
+          subText:
+            duplicateGroups.length === 0
+              ? "No duplicates found."
+              : "Choose the canonical document in each set, or remove duplicates."
+        }}
+        modalProps={{ isBlocking: false }}
+      >
+        <div>
+          {duplicateGroups.length === 0 ? (
+            <div style={{ opacity: 0.7 }}>No duplicates detected.</div>
+          ) : (
+            duplicateGroups.map((group, i) => {
+              const canonicalId = selectedCanonical[i] ?? group[0].id;
+              return (
+                <div key={i} style={{ marginBottom: 18 }}>
+                  <h4 style={{ marginBottom: 8 }}>Duplicate Set {i + 1}</h4>
+
+                  {group.map((doc) => {
+                    const isCanonical = doc.id === canonicalId;
+                    return (
+                      <label
+                        key={doc.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "6px 8px",
+                          border: "1px solid #eee",
+                          borderRadius: 4,
+                          marginBottom: 6,
+                          background: isCanonical ? "#e6f4ff" : "transparent"
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        title={doc.name}
+                      >
+                        <input
+                          type="radio"
+                          name={`canonical-${i}`}
+                          checked={isCanonical}
+                          onChange={() => chooseCanonical(i, doc.id)}
+                        />
+                        <span style={{ flex: 1 }}>
+                          {doc.name}
+                          {isCanonical && <span style={{ marginLeft: 6, opacity: 0.7 }}>(Canonical)</span>}
+                        </span>
+
+                        <DefaultButton
+                          text="Delete"
+                          iconProps={{ iconName: "Delete" }}
+                          styles={{ root: { minWidth: 80, padding: "0 8px", background: "#fde7e9" } }}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            await removeOneFromGroup(doc.id);
+                          }}
+                        />
+                      </label>
+                    );
+                  })}
+
+                  {group.length > 1 && (
+                    <PrimaryButton
+                      text="Remove All Except Canonical"
+                      iconProps={{ iconName: "Delete" }}
+                      style={{ marginTop: 8 }}
+                      onClick={async () => {
+                        await removeAllExceptCanonical(group, i);
+                      }}
+                    />
+                  )}
+
+                  <hr style={{ marginTop: 12 }} />
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <DialogFooter>
+          <PrimaryButton text="Close" onClick={() => setDuplicateDialogOpen(false)} />
         </DialogFooter>
       </Dialog>
     </div>

@@ -1653,6 +1653,69 @@ const App: React.FC = () => {
     }
   };
 
+  /* Document de-duplication to pass to Sidebar */
+  // v0
+  // const findDuplicateDocuments = async () => {
+  //   const pdfs = await db.pdfs.toArray();
+
+  //   const map = new Map<string, Array<{ id: string; name: string }>>();
+
+  //   for (const p of pdfs) {
+  //     if (!p.originalBase64) continue; // skip nulls entirely
+  //     const key = p.originalBase64; // binary-identical content
+  //     if (!map.has(key)) map.set(key, []);
+  //     map.get(key)!.push({ id: p.id, name: p.name });
+  //   }
+
+  //   return Array.from(map.values()).filter(group => group.length > 1);
+  // };
+
+  // v1
+  // const findDuplicateDocuments = async () => {
+  //   const pdfs = await db.pdfs.toArray();
+
+  //   const map = new Map<string, Array<{ id: string; name: string }>>();
+
+  //   for (const p of pdfs) {
+  //     const key = p.originalBase64 ?? ""; // ensure string
+  //     if (!map.has(key)) map.set(key, []);
+  //     map.get(key)!.push({ id: p.id, name: p.name });
+  //   }
+
+  //   // Keep only groups with >1
+  //   const groups = Array.from(map.values()).filter(g => g.length > 1);
+
+  //   // Sort each group by ID → canonical = first uploaded
+  //   for (const g of groups) {
+  //     g.sort((a, b) => a.id.localeCompare(b.id));
+  //   }
+
+  //   return groups;
+  // };
+
+  // v2
+  const findDuplicateDocuments = async () => {
+    const pdfs = await db.pdfs.toArray();
+
+    const map = new Map<string, Array<{ id: string; name: string }>>();
+
+    for (const p of pdfs) {
+      const key = p.originalBase64 ?? ""; // ensure string key
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push({ id: p.id, name: p.name });
+    }
+
+    // Only groups with more than one doc
+    const groups = Array.from(map.values()).filter((g) => g.length > 1);
+
+    // Sort by id (earliest uploaded first) — just a default ordering
+    for (const g of groups) {
+      g.sort((a, b) => a.id.localeCompare(b.id));
+    }
+
+    return groups; // Array<Array<{ id, name }>>
+  };
+
   /* =========================
      INFO MODAL & History UI
      ========================= */
@@ -1670,6 +1733,7 @@ const App: React.FC = () => {
         toggleHighlightCheckbox={toggleHighlightCheckbox}
         handlePdfUpload={handlePdfUpload}
         removePdf={removePdf}
+        onFindDuplicates={findDuplicateDocuments} 
         onApplyAllGroup={onApplyAllGroup}
         onRemoveHighlight={onRemoveHighlight}
         onRemoveGroup={onRemoveGroup}
