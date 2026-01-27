@@ -23,7 +23,7 @@
     "build": "npm run clean && npm i && npm run build:esm && npm run build:copy-styles && npm run build:app",
     "build:esm": "tsc",
     "build:copy-styles": "cp -r ./src/style ./dist/esm",
-    "build:app": "(cd ./app && tsc && vite build && mkdir \"../public/\" && cp -r app ../public/)",
+    "build:app": "(cd app && tsc && vite build && mkdir \"../public/\" && cp -r app ../public/)",
     "build:docs": "npx typedoc",
     "clean": "rm -rf dist public node_modules package-lock.json"
   },
