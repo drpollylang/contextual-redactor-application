@@ -35,8 +35,6 @@ This is all wrapped in a React web application that allows a human reviewer to h
  Your browser does not support the video tag
 </video>
 
-![demos/demo_redactor_app_270126.mp4](The main user interface, showing the document list and redaction checklist on the left and the interactive document preview on the right.)
-
 *The main user interface, showing the document list and redaction checklist on the left and the interactive document preview on the right.*
 
 ## Tech Stack
