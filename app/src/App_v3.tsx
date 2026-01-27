@@ -5,7 +5,7 @@ import CommentForm from "./CommentForm";
 import ContextMenu, { ContextMenuProps } from "./ContextMenu";
 import ExpandableTip from "./ExpandableTip";
 import HighlightContainer from "./HighlightContainer";
-import Toolbar from "./Toolbar";
+// import Toolbar from "./Toolbar";
 
 import {
   GhostHighlight,
@@ -22,7 +22,7 @@ import Sidebar from "./Sidebar_v2_0";
 import "./style/App.css";
 import { CommentedHighlight } from "./types";
 
-import { IconButton, DefaultButton } from "@fluentui/react";
+import { DefaultButton } from "@fluentui/react";
 
 //
 // Utility helpers
@@ -78,10 +78,10 @@ const App: React.FC = () => {
   // ===== UI STATE =====
   //
   const [contextMenu, setContextMenu] = useState<ContextMenuProps | null>(null);
-  const [pdfScaleValue, setPdfScaleValue] = useState<number | undefined>(
+  const [pdfScaleValue] = useState<number | undefined>(
     undefined
   );
-  const [highlightPen, setHighlightPen] = useState<boolean>(false);
+  const [highlightPen] = useState<boolean>(false);
 
   const [showInfoModal, setShowInfoModal] = useState(false);
 
@@ -305,11 +305,11 @@ const App: React.FC = () => {
       >
 
         {/* TOOLBAR */}
-        <Toolbar
+        {/* <Toolbar
         setPdfScaleValue={setPdfScaleValue}
         toggleHighlightPen={() => setHighlightPen(!highlightPen)}
         onShowInfo={() => setShowInfoModal(true)}
-        />
+        /> */}
 
         {/* ===== Toolbar + Info Button ===== */}
         {/* <div

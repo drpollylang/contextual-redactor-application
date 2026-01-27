@@ -5,7 +5,7 @@ import CommentForm from "./CommentForm";
 import ContextMenu, { ContextMenuProps } from "./ContextMenu";
 import ExpandableTip from "./ExpandableTip";
 import HighlightContainer from "./HighlightContainer";
-import Toolbar from "./Toolbar";
+// import Toolbar from "./Toolbar";
 import Sidebar from "./Sidebar_v2_0";
 
 import {
@@ -22,7 +22,7 @@ import "./style/App.css";
 import { CommentedHighlight } from "./types";
 
 import { db, fileToBase64, base64ToBlob } from "./storage";
-import { DefaultButton, IconButton } from "@fluentui/react";
+import { DefaultButton } from "@fluentui/react";
 
 //
 // Helpers
@@ -362,11 +362,11 @@ const App: React.FC = () => {
         }}
       >
         {/* TOOLBAR */}
-        <Toolbar
+        {/* <Toolbar
           setPdfScaleValue={setZoom}
           toggleHighlightPen={() => setHighlightPen(!highlightPen)}
           onShowInfo={() => setShowInfoModal(true)}
-        />
+        /> */}
 
         {/* PDF VIEW */}
         {!currentPdf ? (

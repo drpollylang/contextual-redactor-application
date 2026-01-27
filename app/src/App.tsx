@@ -265,9 +265,9 @@ const App: React.FC = () => {
   const [highlightPen, setHighlightPen] = useState<boolean>(false);
 
   // 2) Stable toggle handler (flip once)
-  const handleToggleHighlightPen = React.useCallback(() => {
-    setHighlightPen(v => !v);
-  }, []);
+  // const handleToggleHighlightPen = React.useCallback(() => {
+  //   setHighlightPen(v => !v);
+  // }, []);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuProps | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -615,13 +615,13 @@ const App: React.FC = () => {
   };
 
   // Legacy: keeps only ACTIVE list in sync, not the master list
-  const deleteHighlight = (h: ViewportHighlight | Highlight) => {
-    if (!currentPdfId) return;
+  // const deleteHighlight = (h: ViewportHighlight | Highlight) => {
+  //   if (!currentPdfId) return;
 
-    setCurrentDocHighlights((prev) => prev.filter((x) => x.id !== h.id));
+  //   setCurrentDocHighlights((prev) => prev.filter((x) => x.id !== h.id));
 
-    persistHighlightsToDB(currentPdfId);
-  };
+  //   persistHighlightsToDB(currentPdfId);
+  // };
 
   const editHighlight = (id: string, update: Partial<CommentedHighlight>) => {
     if (!currentPdfId) return;
@@ -848,36 +848,36 @@ const App: React.FC = () => {
   /**
    * Local version of viewportToScaled (aligns with your ../lib/coordinates.ts)
    */
-  const viewportToScaledLocal = (
-    rect: { left: number; top: number; width: number; height: number; pageNumber: number },
-    viewport: { width: number; height: number }
-  ) => {
-    return {
-      x1: rect.left,
-      y1: rect.top,
-      x2: rect.left + rect.width,
-      y2: rect.top + rect.height,
-      width: viewport.width,
-      height: viewport.height,
-      pageNumber: rect.pageNumber,
-    };
-  };
+  // const viewportToScaledLocal = (
+  //   rect: { left: number; top: number; width: number; height: number; pageNumber: number },
+  //   viewport: { width: number; height: number }
+  // ) => {
+  //   return {
+  //     x1: rect.left,
+  //     y1: rect.top,
+  //     x2: rect.left + rect.width,
+  //     y2: rect.top + rect.height,
+  //     width: viewport.width,
+  //     height: viewport.height,
+  //     pageNumber: rect.pageNumber,
+  //   };
+  // };
 
   /**
    * Convert a ViewportPosition to ScaledPosition using the PDF.js viewer's viewport.
    */
-  const viewportPositionToScaledLocal = (
-    vp: { boundingRect: any; rects: any[] },
-    viewer: any
-  ) => {
-    const pageNumber = vp.boundingRect.pageNumber;
-    const viewport = viewer.getPageView(pageNumber - 1).viewport;
-    const scale = (obj: any) => viewportToScaledLocal(obj, viewport);
-    return {
-      boundingRect: scale(vp.boundingRect),
-      rects: (vp.rects || []).map(scale),
-    };
-  };
+  // const viewportPositionToScaledLocal = (
+  //   vp: { boundingRect: any; rects: any[] },
+  //   viewer: any
+  // ) => {
+  //   const pageNumber = vp.boundingRect.pageNumber;
+  //   const viewport = viewer.getPageView(pageNumber - 1).viewport;
+  //   const scale = (obj: any) => viewportToScaledLocal(obj, viewport);
+  //   return {
+  //     boundingRect: scale(vp.boundingRect),
+  //     rects: (vp.rects || []).map(scale),
+  //   };
+  // };
 
   /**
    * Convert a PDF.js text item → viewport rectangle using the viewer's viewport.
@@ -968,14 +968,17 @@ const App: React.FC = () => {
     // optional fine-tune in viewport pixels if a tiny nudge is needed
     fudgePx: number = 0
   ) => {
-    const [a, b, c, d, e, f] = item.transform;
+    // const [a, b, c, d, e, f] = item.transform;
+    const d = item.transform[3];
+    const e = item.transform[4];
+    const f = item.transform[5];
 
     // Baseline in PDF user space
     const baselineX = e;
     const baselineY = f;
 
     // Use vertical scale from text matrix for height; item.height is not always reliable
-    const fontBoxHeight = Math.abs(d); // positive height magnitude
+    // const fontBoxHeight = Math.abs(d); // positive height magnitude
 
     // In PDF space (Y up), top is baseline - d
     const topPdfY = baselineY - d;
@@ -1028,18 +1031,18 @@ const App: React.FC = () => {
    * Compute viewport-relative rect (left/top/width/height) for a DOM element
    * inside the PDF.js page view. We measure relative to the page's canvas layer.
    */
-  const rectFromTextDiv = (textDiv: HTMLElement, pageView: any) => {
-    const pageDiv = pageView.div as HTMLElement; // page container (positioned)
-    const pageBox = pageDiv.getBoundingClientRect();
-    const divBox = textDiv.getBoundingClientRect();
+  // const rectFromTextDiv = (textDiv: HTMLElement, pageView: any) => {
+  //   const pageDiv = pageView.div as HTMLElement; // page container (positioned)
+  //   const pageBox = pageDiv.getBoundingClientRect();
+  //   const divBox = textDiv.getBoundingClientRect();
 
-    const left = divBox.left - pageBox.left;
-    const top = divBox.top - pageBox.top;
-    const width = divBox.width;
-    const height = divBox.height;
+  //   const left = divBox.left - pageBox.left;
+  //   const top = divBox.top - pageBox.top;
+  //   const width = divBox.width;
+  //   const height = divBox.height;
 
-    return { left, top, width, height };
-  };
+  //   return { left, top, width, height };
+  // };
 
   const getPageTextCached = async (pageNumber: number): Promise<CachedPageText | null> => {
     const pdf = pdfDocumentRef.current;
@@ -1501,42 +1504,42 @@ const App: React.FC = () => {
   };
 
   
-  type TextStyles = Record<string, { ascent?: number; descent?: number; fallbackName?: string }>;
+  // type TextStyles = Record<string, { ascent?: number; descent?: number; fallbackName?: string }>;
 
-  const rectFromTextItemWithAscent = (
-    viewport: any,
-    item: { transform: number[]; width: number; height: number; fontName?: string },
-    styles?: TextStyles,
-    fudgePx: number = 0
-  ) => {
-    const [a, b, c, d, e, f] = item.transform;
-    const baselineX = e;
-    const baselineY = f;
-    const w = item.width;
+  // const rectFromTextItemWithAscent = (
+  //   viewport: any,
+  //   item: { transform: number[]; width: number; height: number; fontName?: string },
+  //   styles?: TextStyles,
+  //   fudgePx: number = 0
+  // ) => {
+  //   const [a, b, c, d, e, f] = item.transform;
+  //   const baselineX = e;
+  //   const baselineY = f;
+  //   const w = item.width;
 
-    const ascent = item.fontName && styles?.[item.fontName]?.ascent;
+  //   const ascent = item.fontName && styles?.[item.fontName]?.ascent;
 
-    if (typeof ascent === "number" && isFinite(ascent)) {
-      const topPdfY = baselineY - (Math.abs(d) * ascent);
-      const bottomPdfY = topPdfY + Math.abs(d);
+  //   if (typeof ascent === "number" && isFinite(ascent)) {
+  //     const topPdfY = baselineY - (Math.abs(d) * ascent);
+  //     const bottomPdfY = topPdfY + Math.abs(d);
 
-      const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle([
-        baselineX,         topPdfY,
-        baselineX + w,     bottomPdfY
-      ]);
+  //     const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle([
+  //       baselineX,         topPdfY,
+  //       baselineX + w,     bottomPdfY
+  //     ]);
 
-      let left = Math.min(vx1, vx2);
-      let top = Math.min(vy1, vy2);
-      const width = Math.abs(vx2 - vx1);
-      const height = Math.abs(vy2 - vy1);
-      if (fudgePx) top -= fudgePx;
+  //     let left = Math.min(vx1, vx2);
+  //     let top = Math.min(vy1, vy2);
+  //     const width = Math.abs(vx2 - vx1);
+  //     const height = Math.abs(vy2 - vy1);
+  //     if (fudgePx) top -= fudgePx;
 
-      return { left, top, width, height };
-    }
+  //     return { left, top, width, height };
+  //   }
 
-    // Fallback to matrix-based version if no ascent
-    return rectFromTextItem(viewport, item, fudgePx);
-  };
+  //   // Fallback to matrix-based version if no ascent
+  //   return rectFromTextItem(viewport, item, fudgePx);
+  // };
 
 
   /**

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import "./style/Sidebar.css";
-import { DefaultButton, PrimaryButton } from "@fluentui/react";
+import { DefaultButton } from "@fluentui/react";
 import { DeleteRegular } from "@fluentui/react-icons";
 import { CommentedHighlight } from "./types";
 

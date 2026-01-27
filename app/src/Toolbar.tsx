@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { IconButton, Stack, IIconProps, IButtonStyles, TooltipHost, SearchBox } from "@fluentui/react";
+import { IconButton, IIconProps, IButtonStyles, TooltipHost, SearchBox } from "@fluentui/react";
 
 import "./style/Toolbar.css";
 

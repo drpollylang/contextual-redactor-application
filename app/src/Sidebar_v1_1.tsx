@@ -1,6 +1,6 @@
 
 import React from "react";
-import type { Highlight } from "./react-pdf-highlighter-extended";
+// import type { Highlight } from "./react-pdf-highlighter-extended";
 import "./style/Sidebar.css";
 import { CommentedHighlight } from "./types";
 
@@ -26,9 +26,9 @@ interface SidebarProps {
   toggleDocument: () => void;
 }
 
-const updateHash = (highlight: Highlight) => {
-  document.location.hash = `highlight-${highlight.id}`;
-};
+// const updateHash = (highlight: Highlight) => {
+//   document.location.hash = `highlight-${highlight.id}`;
+// };
 
 declare const APP_VERSION: string;
 
