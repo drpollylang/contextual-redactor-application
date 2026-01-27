@@ -30,9 +30,14 @@ This is all wrapped in a React web application that allows a human reviewer to h
 
 ## Demo
 
-**TODO**
+<video width="75%" controls>
+ <source src="demos/demo_redactor_app_270126.mp4" type="video/mp4">
+ Your browser does not support the video tag
+</video>
 
-*The main user interface, showing the AI suggestion checklist on the left and the interactive document preview on the right.*
+![demos/demo_redactor_app_270126.mp4](The main user interface, showing the document list and redaction checklist on the left and the interactive document preview on the right.)
+
+*The main user interface, showing the document list and redaction checklist on the left and the interactive document preview on the right.*
 
 ## Tech Stack
 
