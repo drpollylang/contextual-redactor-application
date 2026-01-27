@@ -1,6 +1,6 @@
 import React, { ReactNode, useEffect, useRef, useState } from "react";
 
-import { GlobalWorkerOptions, OnProgressParameters, getDocument, type PDFDocumentLoadingTask, type PDFDocumentProxy } from "pdfjs-dist";
+import { GlobalWorkerOptions, OnProgressParameters, getDocument, type PDFDocumentLoadingTask, type PDFDocumentProxy } from "pdfjs-dist/build/pdf";
 import { DocumentInitParameters, TypedArray } from "pdfjs-dist/types/src/display/api";
 
 const DEFAULT_BEFORE_LOAD = (progress: OnProgressParameters) => (
@@ -18,7 +18,8 @@ const DEFAULT_ON_ERROR = (error: Error) => {
 };
 
 const DEFAULT_WORKER_SRC =
-  "https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
+  // "https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
+  "https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs";
 
 /**
  * The props type for {@link PdfLoader}.
