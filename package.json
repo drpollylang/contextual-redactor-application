@@ -32,6 +32,9 @@
     "react-dom": "^18.3.1"
   },
   "dependencies": {
+    "@azure/functions": "^4.11.0",
+    "@azure/identity": "^4.13.0",
+    "@azure/storage-blob": "^12.30.0",
     "@fluentui/react": "^8.125.4",
     "@fluentui/react-icons": "^2.0.317",
     "dexie": "^4.2.1",
