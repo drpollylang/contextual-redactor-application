@@ -46,3 +46,26 @@ export async function getDownloadSas(params: {
   if (!res.ok) throw new Error(`getDownloadSas failed: ${res.status}`);
   return res.json();
 }
+
+
+export type UserDocEntry = {
+  projectId: string;
+  fileName: string;
+  originalPath?: string;
+  workingPath?: string;
+  highlightsPath?: string;
+};
+
+export async function listUserDocuments(userId: string): Promise<UserDocEntry[]> {
+  // Use GET with query; you can also send POST with body if you prefer
+  const res = await fetch(`${API_BASE}/listUserDocuments?userId=${encodeURIComponent(userId)}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`listUserDocuments failed: ${res.status}`);
+  const data = await res.json();
+  const docs = (data?.documents ?? []) as UserDocEntry[];
+  console.log("[WEB] listUserDocuments:", docs);
+  return docs;
+}

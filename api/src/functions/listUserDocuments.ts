@@ -1,0 +1,124 @@
+/* Lists documents within the userId and projectId directories associated with the 
+  current user/project. Used to restore previous app state/docs/redactions upon 
+  session restart. */
+import { BlobServiceClient } from "@azure/storage-blob";
+import { DefaultAzureCredential } from "@azure/identity";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+
+const STORAGE_URL = process.env.STORAGE_URL!; // e.g., https://<account>.blob.core.windows.net
+const CONTAINER = "files";
+
+type UserDoc = {
+  projectId: string;
+  fileName: string;
+  originalPath?: string;    // <userId>/<projectId>/original/<filename>.pdf
+  workingPath?: string;     // <userId>/<projectId>/working/<filename>.pdf
+  highlightsPath?: string;  // <userId>/<projectId>/working/<filename>.highlights.json
+};
+
+
+function getAccountNameFromUrl(accountUrl: string): string {
+  const host = new URL(accountUrl).host; // "<account>.blob.core.windows.net"
+  const account = host.split(".")[0];
+  if (!account) throw new Error("Could not parse storage account name from STORAGE_URL");
+  return account;
+}
+
+// Helper: safely read userId from query string or JSON body (with type annotation)
+async function readUserId(req: HttpRequest): Promise<string | null> {
+  // Prefer query (?userId=...) — works for GET and POST
+  const fromQuery = req.query.get("userId");
+  if (fromQuery && fromQuery.trim()) return fromQuery.trim();
+
+  // Only try to read body for methods that typically carry one
+  const method = (req.method || "GET").toUpperCase();
+  if (method === "POST" || method === "PUT" || method === "PATCH") {
+    // Optional: check content-type is JSON to avoid exceptions
+    const ct = (req.headers.get("content-type") || "").toLowerCase();
+    if (!ct.includes("application/json")) return null;
+
+    try {
+      // Resolve the Promise<unknown> and then narrow/annotate
+      const body = (await req.json()) as { userId?: string } | null;
+      const uid = body?.userId?.trim();
+      return uid || null;
+    } catch {
+      return null; // invalid/missing JSON body
+    }
+  }
+
+  return null;
+}
+
+
+export async function listUserDocuments(req: HttpRequest, ctx: InvocationContext): Promise<HttpResponseInit> {
+  
+  try {
+    const userId = await readUserId(req);
+    if (!userId) {
+      return { status: 400, jsonBody: { error: "userId is required (query ?userId=... or JSON body {userId})" } };
+    }
+
+    const credential = new DefaultAzureCredential();
+    const service = new BlobServiceClient(STORAGE_URL, credential);
+    const container = service.getContainerClient(CONTAINER);
+
+    const prefix = `${userId}/`; // list projects under userId
+    const docs: UserDoc[] = [];
+
+    
+    // Iterate the hierarchy under <userId>/
+    for await (const item of container.listBlobsByHierarchy("/", { prefix })) {
+      if (item.kind === "prefix") {
+        const projectPrefix = item.name; // e.g., "user123/<projectId>/"
+        const parts = projectPrefix.split("/").filter(Boolean);
+        const projectId = parts[1]; // ["user123", "<projectId>"]
+
+        let originalPath: string | undefined;
+        let workingPath: string | undefined;
+        let highlightsPath: string | undefined;
+        let fileName: string | undefined;
+
+        // Find original PDF
+        for await (const blob of container.listBlobsFlat({ prefix: `${projectPrefix}original/` })) {
+          if (blob.name.toLowerCase().endsWith(".pdf")) {
+            originalPath = blob.name;
+            fileName = blob.name.split("/").pop();
+            break; // only one original expected
+          }
+        }
+
+        // Find working PDF and highlights JSON
+        for await (const blob of container.listBlobsFlat({ prefix: `${projectPrefix}working/` })) {
+          const lower = blob.name.toLowerCase();
+          if (lower.endsWith(".highlights.json")) {
+            highlightsPath = blob.name;
+          } else if (lower.endsWith(".pdf")) {
+            workingPath = blob.name;
+            if (!fileName) fileName = blob.name.split("/").pop();
+          }
+        }
+
+        docs.push({
+          projectId,
+          fileName: fileName ?? "document.pdf",
+          originalPath,
+          workingPath,
+          highlightsPath,
+        });
+      }
+    }
+
+    return { jsonBody: { documents: docs } };
+  } catch (err: any) {
+    ctx.error(err?.message ?? err);
+    return { status: 500, jsonBody: { error: "Internal server error" } };
+  }
+}
+
+
+app.http("listUserDocuments", {
+  methods: ["GET", "POST"],          // allow both; GET with ?userId=..., POST with {userId}
+  authLevel: "anonymous",            // lock down later via SWA/Functions auth
+  handler: listUserDocuments
+});
