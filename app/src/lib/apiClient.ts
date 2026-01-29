@@ -1,10 +1,11 @@
 
 // app/src/lib/apiClient.ts
-const API_BASE =
-  import.meta.env.MODE === "development"
-    ? "http://localhost:7071/api" // dev: direct to local Functions host
-    : "/api";                      // prod: SWA reverse proxy
+// const API_BASE =
+//   import.meta.env.MODE === "development"
+//     ? "http://localhost:7071/api" // dev: direct to local Functions host
+//     : "/api";                      // prod: SWA reverse proxy
 
+const API_BASE = "/api";  
 
 export type UploadSasResponse = { uploadUrl: string };
 export type DownloadSasResponse = { downloadUrl: string };
