@@ -1,0 +1,6 @@
+{
+  "appLocation": "app",
+  "outputLocation": "app/dist",
+  "apiLocation": "api",
+  "devServerUrl": "http://localhost:5173"
+}
