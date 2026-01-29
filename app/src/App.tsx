@@ -27,8 +27,8 @@ import { CommentedHighlight } from "./types";
 import { db, fileToBase64, base64ToBlob } from "./storage";
 import { DefaultButton } from "@fluentui/react";
 
-import BlobUploader from "./components/BlobUploader";
-import { getDownloadUrl } from "./lib/blobDownload";
+// import BlobUploader from "./components/BlobUploader";
+// import { getDownloadUrl } from "./lib/blobDownload";
 import { saveOriginalPdfToBlob, saveWorkingSnapshotToBlob } from "./lib/blobPersist";
 import { listUserDocuments, getDownloadSas } from "./lib/apiClient";
 
