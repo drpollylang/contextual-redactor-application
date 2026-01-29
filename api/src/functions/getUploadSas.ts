@@ -1,6 +1,6 @@
-// Get a SaS in order to be able to upload files to Azure Blob Storage
-// SaS = Shared Access Signatures, which are tokens that grant time-limited and permission-scoped access to resources in 
-// Azure Storage and other SAS-enabled services.
+// // Get a SaS in order to be able to upload files to Azure Blob Storage
+// // SaS = Shared Access Signatures, which are tokens that grant time-limited and permission-scoped access to resources in 
+// // Azure Storage and other SAS-enabled services.
 import {
   BlobServiceClient,
   BlobSASPermissions,
@@ -11,54 +11,54 @@ import {
 import { DefaultAzureCredential } from "@azure/identity";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-const STORAGE_URL = process.env.STORAGE_URL!; // e.g., https://<account>.blob.core.windows.net
+const STORAGE_URL = process.env.STORAGE_URL!; // https://<account>.blob.core.windows.net
 
-type UploadBody = {
-  containerName: string;
-  blobPath: string;
-  ttlMinutes?: number;
-};
+function normalizeBlobPath(raw: string): string {
+  return raw.replace(/^\/+/, "").replace(/\/{2,}/g, "/");
+}
 
-function getAccountNameFromUrl(accountUrl: string): string {
-  const host = new URL(accountUrl).host; // "<account>.blob.core.windows.net"
-  const account = host.split(".")[0];
-  if (!account) throw new Error("Could not parse storage account name from STORAGE_URL");
-  return account;
+// Encode only path segments (directories + filename), not the full URL:
+function encodePathSegments(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 export async function getUploadSas(req: HttpRequest, ctx: InvocationContext): Promise<HttpResponseInit> {
   try {
-    const body = (await req.json()) as Partial<UploadBody>;
-    const { containerName, blobPath, ttlMinutes = 10 } = body;
-
+    const { containerName, blobPath, ttlMinutes = 10 } = (await req.json()) as {
+      containerName?: string; blobPath?: string; ttlMinutes?: number;
+    };
     if (!containerName || !blobPath) {
       return { status: 400, jsonBody: { error: "containerName and blobPath are required" } };
     }
 
-    // Auth chain: local = Azure CLI; Azure = Managed Identity
-    const credential = new DefaultAzureCredential(); // DefaultAzureCredential chooses the best available source
-    const service = new BlobServiceClient(STORAGE_URL, credential);
+    // Normalize raw blob name for signing (do NOT encode for signing)
+    const rawBlobPath = normalizeBlobPath(blobPath);
 
-    // Request a user delegation key (requires RBAC on the storage account)
-    const now = new Date();
-    const ends = new Date(now.getTime() + ttlMinutes * 60_000);
-    const userDelegationKey = await service.getUserDelegationKey(now, ends);
+    const credential = new DefaultAzureCredential();
+    const service    = new BlobServiceClient(STORAGE_URL, credential);
 
-    // Build SAS signature values
+    const now    = new Date();
+    const starts = new Date(now.getTime() - 5 * 60_000);
+    const ends   = new Date(now.getTime() + ttlMinutes * 60_000);
+    const key    = await service.getUserDelegationKey(starts, ends);
+
     const sasValues: BlobSASSignatureValues = {
       containerName,
-      blobName: blobPath,
-      permissions: BlobSASPermissions.parse("cwr"), // create, write, read
-      startsOn: now,
+      blobName: rawBlobPath,                          // ← include blobName for blob SAS
+      permissions: BlobSASPermissions.parse("cwr"),   // create + write + read
+      startsOn: starts,
       expiresOn: ends,
       protocol: SASProtocol.Https
     };
 
-    const accountName = getAccountNameFromUrl(STORAGE_URL);
-    const sasToken = generateBlobSASQueryParameters(sasValues, userDelegationKey, accountName).toString(); // UD SAS
-    const uploadUrl = `${STORAGE_URL}/${containerName}/${blobPath}?${sasToken}`;
+    const accountName = new URL(STORAGE_URL).host.split(".")[0];
+    const sasToken    = generateBlobSASQueryParameters(sasValues, key, accountName).toString();
 
-    return { jsonBody: { uploadUrl } };
+    // Encode only when composing the URL path:
+    const urlBlobPath = encodePathSegments(rawBlobPath);
+    const uploadUrl   = `${STORAGE_URL}/${containerName}/${urlBlobPath}?${sasToken}`;
+
+    return { jsonBody: { uploadUrl, blobPath: rawBlobPath } };
   } catch (err: any) {
     ctx.error(err?.message ?? err);
     return { status: 500, jsonBody: { error: "Internal server error" } };
@@ -67,6 +67,6 @@ export async function getUploadSas(req: HttpRequest, ctx: InvocationContext): Pr
 
 app.http("getUploadSas", {
   methods: ["POST"],
-  authLevel: "anonymous", // lock down later via SWA auth/roles
+  authLevel: "anonymous",
   handler: getUploadSas
 });

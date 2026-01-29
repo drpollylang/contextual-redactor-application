@@ -56,5 +56,18 @@ TODO
 
 TODO
 
+NOTE: You will need the permissions associated with the roles **Contributor** and **Storage Blob Data Contributor** to use in dev - otherwise, the server will bounce back a 403 Forbidden HTTP error!
+
+In one terminal, to start the Azure Functions backend locally:
+```
+cd api
+npm run build && func start
+```
+
+In another terminal, to start the app UI:
+```
+npm run dev
+```
+
 ## Project Structure
 

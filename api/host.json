@@ -6,6 +6,13 @@
         "isEnabled": true,
         "excludedTypes": "Request"
       }
+    }, 
+"logLevel": {
+      "default": "Debug",
+      "Function.getUploadSas": "Debug",
+      "Host.Results": "Information",
+      "Worker": "Information"
+
     }
   },
   "extensionBundle": {

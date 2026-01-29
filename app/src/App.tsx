@@ -27,6 +27,10 @@ import { CommentedHighlight } from "./types";
 import { db, fileToBase64, base64ToBlob } from "./storage";
 import { DefaultButton } from "@fluentui/react";
 
+import BlobUploader from "./components/BlobUploader";
+import { getDownloadUrl } from "./lib/blobDownload";
+
+
 /* =========================
    Local helpers & types
    ========================= */
@@ -1772,6 +1776,34 @@ const App: React.FC = () => {
           searchTotal={searchTotal}
           onToggleHistory={() => setShowHistory((v) => !v)}
         />
+
+        
+        {/* Add a small block to test upload/download */}
+        <div style={{ padding: 8, borderBottom: "1px solid #ddd", display: "flex", gap: 12 }}>
+          <BlobUploader
+            container="files"
+            blobPathPrefix={
+              currentPdfId
+                ? `user123/${currentPdfId}/working` // example per current PDF
+                : "user123/anonymous/working"
+            }
+            onUploaded={(blobPath) => {
+              console.log("[uploaded blobPath]", blobPath);
+              // Optional: show a toast or attach blobPath to the current document’s record in Dexie
+            }}
+          />
+          <button
+            onClick={async () => {
+              if (!currentPdfId) return;
+              const blobPath = `user123/${currentPdfId}/working/testdoc_0.pdf`; // change to an existing blob
+              const url = await getDownloadUrl("files", blobPath, 5);
+              window.open(url, "_blank");
+            }}
+          >
+            Download test blob
+          </button>
+        </div>
+
 
         {!currentPdf ? (
           <div
