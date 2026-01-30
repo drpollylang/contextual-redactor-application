@@ -17,6 +17,14 @@
     },
     {
       "route": "/runtime/webhooks/durabletask/*",
+      "methods": [
+        "get",
+        "head",
+        "post",
+        "put",
+        "delete",
+        "options"
+      ],
       "rewrite": "https://redaction-backend-func.azurewebsites.net/runtime/webhooks/durabletask/*",
       "allowedRoles": [
         "anonymous"
