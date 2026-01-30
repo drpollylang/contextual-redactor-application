@@ -1951,18 +1951,16 @@ const App: React.FC = () => {
       return;
     }
 
-    // For now, hardcode the blob path you want to test
-    // Later you'll compute it from your document metadata.
     const blobPath =
       "files/anonymous/DevTesting/original/Telefonica Redaction Email Example 3 Disability.pdf";
 
     console.log("[AI] Starting redaction for:", blobPath);
 
-    // 1) Trigger orchestration
-    const res = await fetch("/api/start_redaction", {
+    // 🔄 call the new SWA path (rewritten to Python Function App)
+    const res = await fetch("/ai/start_redaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blobName: blobPath }),
+      body: JSON.stringify({ blobName: blobPath })
     });
 
     if (!res.ok) {
@@ -1973,15 +1971,17 @@ const App: React.FC = () => {
     const data = await res.json();
     console.log("[AI] Start response:", data);
 
-    const statusUrl = data.statusQueryGetUri;
-    if (!statusUrl) {
-      console.error("[AI] No statusQueryGetUri in response.");
-      return;
-    }
+    // Durable returns full absolute URL for status on the Function App host.
+    // Convert it to the SWA-relative proxy path by prefixing with /ai.
+    const u = new URL(data.statusQueryGetUri);
+    const swaStatusUrl = `/ai${u.pathname}${u.search}`;
 
-    // 2) Poll for completion
     const poll = setInterval(async () => {
-      const s = await fetch(statusUrl);
+      const s = await fetch(swaStatusUrl);
+      if (!s.ok) {
+        console.warn("[AI] Poll failed:", s.status);
+        return;
+      }
       const status = await s.json();
       console.log("[AI] Poll status:", status.runtimeStatus);
 
@@ -1992,6 +1992,7 @@ const App: React.FC = () => {
       ) {
         clearInterval(poll);
         console.log("[AI] Final status:", status);
+        // You can now fetch the JSON at status.output.outputBlobPath using your SAS TS function.
       }
     }, 2000);
   };
