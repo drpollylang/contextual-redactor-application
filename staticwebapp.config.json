@@ -2,33 +2,13 @@
   "routes": [
     {
       "route": "/api/start_redaction",
-      "methods": [
-        "get",
-        "head",
-        "post",
-        "put",
-        "delete",
-        "options"
-      ],
       "rewrite": "https://redaction-backend-func.azurewebsites.net/api/start_redaction",
-      "allowedRoles": [
-        "anonymous"
-      ]
+      "allowedRoles": ["anonymous"]
     },
     {
       "route": "/runtime/webhooks/durabletask/*",
-      "methods": [
-        "get",
-        "head",
-        "post",
-        "put",
-        "delete",
-        "options"
-      ],
       "rewrite": "https://redaction-backend-func.azurewebsites.net/runtime/webhooks/durabletask/*",
-      "allowedRoles": [
-        "anonymous"
-      ]
+      "allowedRoles": ["anonymous"]
     }
   ]
 }
