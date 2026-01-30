@@ -1942,6 +1942,60 @@ const App: React.FC = () => {
     return groups; // Array<Array<{ id, name }>>
   };
 
+  // ===============================
+  // DEV TEST: Call Durable Function API (redactor-backend-func) - initiate ai pipeline to generate redactions
+  // ===============================
+  const testStartRedaction = async () => {
+    if (!currentPdfId) {
+      alert("No PDF loaded!");
+      return;
+    }
+
+    // For now, hardcode the blob path you want to test
+    // Later you'll compute it from your document metadata.
+    const blobPath =
+      "files/anonymous/DevTesting/original/Telefonica Redaction Email Example 3 Disability.pdf";
+
+    console.log("[AI] Starting redaction for:", blobPath);
+
+    // 1) Trigger orchestration
+    const res = await fetch("/api/start_redaction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blobName: blobPath }),
+    });
+
+    if (!res.ok) {
+      console.error("[AI] Failed to start:", await res.text());
+      return;
+    }
+
+    const data = await res.json();
+    console.log("[AI] Start response:", data);
+
+    const statusUrl = data.statusQueryGetUri;
+    if (!statusUrl) {
+      console.error("[AI] No statusQueryGetUri in response.");
+      return;
+    }
+
+    // 2) Poll for completion
+    const poll = setInterval(async () => {
+      const s = await fetch(statusUrl);
+      const status = await s.json();
+      console.log("[AI] Poll status:", status.runtimeStatus);
+
+      if (
+        status.runtimeStatus === "Completed" ||
+        status.runtimeStatus === "Failed" ||
+        status.runtimeStatus === "Terminated"
+      ) {
+        clearInterval(poll);
+        console.log("[AI] Final status:", status);
+      }
+    }, 2000);
+  };
+
   /* =========================
      INFO MODAL & History UI
      ========================= */
@@ -1980,6 +2034,15 @@ const App: React.FC = () => {
           flexGrow: 1,
         }}
       >
+        
+      {/* TEMP TEST BUTTON */}
+        <div style={{ padding: 8 }}>
+          <DefaultButton
+            text="TEST: Generate AI Suggested Redactions"
+            onClick={testStartRedaction}
+          />
+        </div>
+
         {/* Toolbar (includes ⓘ info button via onShowInfo) */}
         <Toolbar
           setPdfScaleValue={setZoom}
