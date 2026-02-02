@@ -20,6 +20,7 @@ import {
   PdfLoader,
   Tip,
   ViewportHighlight,
+  ScaledPosition
 } from "./react-pdf-highlighter-extended";
 
 import "./style/App.css";
@@ -459,6 +460,30 @@ const App: React.FC = () => {
   //   })();
   // }, []);
 
+  
+  function ensurePosition(h: any): ScaledPosition {
+    // Provide a harmless default 1×1 transparent rect on page 1
+    return h.position ?? {
+      pageNumber: 1,
+      x1: 0,
+      y1: 0,
+      x2: 1,
+      y2: 1,
+      width: 1,
+      height: 1
+    };
+  }
+
+  function normalizeHighlight(h: any): CommentedHighlight {
+    return {
+      id: h.id ?? String(Math.random()).slice(2),
+      content: h.content ?? { text: "" },
+      comment: h.comment ?? "",
+      metadata: h.metadata ?? null,
+      position: ensurePosition(h),
+    };
+  }
+
   // App.tsx — replace the Dexie restore effect with this Blob-first restore:
   useEffect(() => {
     (async () => {
@@ -511,11 +536,12 @@ const App: React.FC = () => {
 
           let all: CommentedHighlight[] = [];
           let activeIds: string[] = [];
-
+      
           if (d.highlightsPath) {
             const payload = await fetchJson<HighlightsPayload>("files", d.highlightsPath);
             if (payload) {
-              all = payload.allHighlights ?? [];
+              // all = payload.allHighlights ?? [];
+              all = (payload.allHighlights ?? []).map(normalizeHighlight);
               activeIds = payload.activeHighlights ?? [];
             }
           }
