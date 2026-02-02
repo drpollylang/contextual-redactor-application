@@ -1946,6 +1946,10 @@ const App: React.FC = () => {
   // DEV TEST: Call Durable Function API (redactor-backend-func) - initiate ai pipeline to generate redactions
   // ===============================
   const testStartRedaction = async () => {
+    
+    const backend_key = process.env.PYTHON_FUNC_KEY;
+    const backend_url = process.env.PYTHON_FUNC_URL;
+
     if (!currentPdfId) {
       alert("No PDF loaded!");
       return;
@@ -1957,11 +1961,19 @@ const App: React.FC = () => {
     console.log("[AI] Starting redaction for:", blobPath);
 
     // 🔄 call the new SWA path (rewritten to Python Function App)
-    const res = await fetch("/ai/start_redaction", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ blobName: blobPath })
-    });
+    // const res = await fetch("/ai/start_redaction", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({ blobName: blobPath })
+    // });
+    const res = await fetch(
+      `${backend_url}?code=${backend_key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blobName: blobPath })
+      }
+    );
 
     if (!res.ok) {
       console.error("[AI] Failed to start:", await res.text());
@@ -1974,10 +1986,12 @@ const App: React.FC = () => {
     // Durable returns full absolute URL for status on the Function App host.
     // Convert it to the SWA-relative proxy path by prefixing with /ai.
     const u = new URL(data.statusQueryGetUri);
-    const swaStatusUrl = `/ai${u.pathname}${u.search}`;
+    // const swaStatusUrl = `/ai${u.pathname}${u.search}`;
+    const statusUrl = u.toString();   // use the full URL returned by Durable Functions    
 
     const poll = setInterval(async () => {
-      const s = await fetch(swaStatusUrl);
+      // const s = await fetch(swaStatusUrl);
+      const s = await fetch(statusUrl);
       if (!s.ok) {
         console.warn("[AI] Poll failed:", s.status);
         return;
