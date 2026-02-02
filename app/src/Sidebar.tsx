@@ -125,7 +125,8 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
     for (const h of all) {
       const raw = h.content?.text ?? "";
       const key = normalizeText(raw) || "__no_text__";
-      const label = getDisplayLabel(h);
+      // const label = getDisplayLabel(h);
+      const label = h.label ?? getDisplayLabel(h);
 
       const existing = map.get(key);
       if (existing) existing.items.push(h);

@@ -72,6 +72,20 @@ async function fetchJson<T>(container: string, blobPath: string, ttlMinutes = 10
   return (await res.json()) as T;
 }
 
+// function getHighlightColor(h: CommentedHighlight): string {
+//   if (h.source === "ai") {
+//     const category = h.metadata?.category;
+//     switch (category) {
+//       case "Person":      return "rgba(255, 99, 71, 0.4)";    // Tomato
+//       case "DateOfBirth": return "rgba(30, 144, 255, 0.4)";   // DodgerBlue
+//       case "Address":     return "rgba(255, 165, 0, 0.4)";    // Orange
+//       case "School":      return "rgba(60, 179, 113, 0.4)";   // SeaGreen
+//       default:            return "rgba(128, 0, 128, 0.4)";    // Purple
+//     }
+//   }
+//   // Manual yellow
+//   return "rgba(255, 226, 143, 0.7)";
+// }
 
 /* =========================
    Component
@@ -460,7 +474,21 @@ const App: React.FC = () => {
   //   })();
   // }, []);
 
-  
+  // function ensureLabelAndSource(h: any, fallbackUserId: string): CommentedHighlight {
+  //   const hasLabel = typeof h.label === "string" && h.label.length > 0;
+  //   const hasSource = h.source === "manual" || h.source === "ai";
+
+  //   const fallbackLabel = h.comment
+  //     ? `${fallbackUserId} added ${new Date().toLocaleString()}: ${h.comment}`
+  //     : `${fallbackUserId} added ${new Date().toLocaleString()}`;
+
+  //   return {
+  //     ...h,
+  //     label: hasLabel ? h.label : fallbackLabel,
+  //     source: hasSource ? h.source : "manual"
+  //   };
+  // }
+
   function ensurePosition(h: any): ScaledPosition {
     // Provide a harmless default 1×1 transparent rect on page 1
     return h.position ?? {
@@ -481,6 +509,8 @@ const App: React.FC = () => {
       comment: h.comment ?? "",
       metadata: h.metadata ?? null,
       position: ensurePosition(h),
+      label: h.label ?? "",
+      source: h.source ?? "manual"
     };
   }
 
@@ -796,7 +826,31 @@ const App: React.FC = () => {
     pushUndoState();
     const prev = getSnapshot(); // before
 
-    const h: CommentedHighlight = { ...ghost, comment, id: getNextId() };
+    // const h: CommentedHighlight = { ...ghost, comment, id: getNextId() };
+    // const now = new Date();
+    // const timestamp = now.toLocaleString();
+
+    // const h: CommentedHighlight = {
+    //   ...ghost,
+    //   id: getNextId(),
+    //   comment,
+    //   source: "manual",
+    //   label: `${userId} added ${timestamp}${comment ? `: ${comment}` : ""}`,
+    // };
+    
+    // Build manual label: "<userId> added <local date/time>: <optional comment>"
+      const timestamp = new Date().toLocaleString();
+      const label = `${userId} added ${timestamp}${comment ? `: ${comment}` : ""}`;
+
+      const h: CommentedHighlight = {
+        id: getNextId(),
+        content: ghost.content,                 // from GhostHighlight
+        comment: comment || "",
+        position: ghost.position as any,        // ScaledPosition-compatible
+        metadata: undefined,
+        source: "manual",
+        label
+      };
 
     const nextAll = {
       ...allHighlights,
@@ -810,7 +864,7 @@ const App: React.FC = () => {
     setAllHighlights(nextAll);
     setDocHighlights(nextDoc);
 
-    logHistory("Add highlight", prev, { doc: nextDoc, all: nextAll });
+    logHistory("Add highlight (manual)", prev, { doc: nextDoc, all: nextAll });
 
     persistHighlightsToDB(currentPdfId);
   };
@@ -950,7 +1004,10 @@ const App: React.FC = () => {
         <CommentForm
           placeHolder={highlight.comment}
           onSubmit={(val) => {
-            editHighlight(highlight.id, { comment: val });
+            editHighlight(highlight.id, { 
+              comment: val,
+              label: `${userId} added ${new Date().toLocaleString()}: ${val}` 
+            });
             highlighterUtilsRef.current!.setTip(null);
             highlighterUtilsRef.current!.toggleEditInProgress(false);
           }}
@@ -1448,6 +1505,36 @@ const App: React.FC = () => {
     getSnapshot,
     persistHighlightsToDB
   ]);
+
+  // function aiColorForCategory(category?: string): string {
+  //   switch (category) {
+  //     case "Person":
+  //       return "rgba(255, 99, 71, 0.4)";     // Tomato red
+  //     case "DateOfBirth":
+  //       return "rgba(30, 144, 255, 0.4)";    // Dodger blue
+  //     case "Address":
+  //       return "rgba(255, 165, 0, 0.4)";     // Orange
+  //     case "School":
+  //       return "rgba(60, 179, 113, 0.4)";    // MediumSeaGreen
+  //     default:
+  //       return "rgba(128, 0, 128, 0.4)";     // Purple fallback
+  //   }
+  // }
+
+  // function getHighlightColor(h: CommentedHighlight): string {
+  //   if (h.source === "ai") {
+  //     const category = h.metadata?.category;
+  //     switch (category) {
+  //       case "Person": return "rgba(255, 99, 71, 0.4)";
+  //       case "DateOfBirth": return "rgba(30, 144, 255, 0.4)";
+  //       case "Address": return "rgba(255, 165, 0, 0.4)";
+  //       case "School": return "rgba(60, 179, 113, 0.4)";
+  //       default: return "rgba(128, 0, 128, 0.4)";
+  //     }
+  //   }
+  //   // Manual yellow highlight
+  //   return "rgba(255, 226, 143, 0.7)";
+  // }
   
   /**
    * Iterate text nodes under an element in document order.
@@ -1850,6 +1937,8 @@ const App: React.FC = () => {
           comment: "",
           content: { text: clean },
           position: o.position as any,
+          label: `${userId} applied ${new Date().toLocaleString()}`,
+          source: 'manual'
         });
       }
 
@@ -2334,6 +2423,119 @@ const App: React.FC = () => {
                   }
                   highlights={currentHighlights}
                   style={{ height: "calc(100% - 41px)" }}
+                  // Tooltip showing label (category)
+                  // renderHighlightTip={(highlight) => (
+                  //   <div
+                  //     style={{
+                  //       background: "white",
+                  //       padding: "6px 10px",
+                  //       borderRadius: 4,
+                  //       boxShadow: "0 2px 6px rgba(0,0,0,0.2)"
+                  //     }}
+                  //   >
+                  //     {highlight.label ?? highlight.comment ?? ""}
+                  //   </div>
+                  // )}
+                  // highlightTransform={(highlight, index, setTip, hideTip) => {
+                  //   const color = getHighlightColor(highlight);
+
+                  //   return (
+                  //     <div
+                  //       key={index}
+                  //       onMouseOver={() => setTip(highlight)}
+                  //       onMouseOut={hideTip}
+                  //       style={{
+                  //         position: "absolute",
+                  //         background: color,
+                  //         opacity: 0.35,
+                  //         borderRadius: 2,
+                  //         left: highlight.position.boundingRect.x1,
+                  //         top: highlight.position.boundingRect.y1,
+                  //         width: highlight.position.boundingRect.x2 - highlight.position.boundingRect.x1,
+                  //         height: highlight.position.boundingRect.y2 - highlight.position.boundingRect.y1,
+                  //       }}
+                  //     />
+                  //   );
+                  // }}
+                  // renderHighlightTip={(highlight) => (
+                  //   <div
+                  //     style={{
+                  //       background: "white",
+                  //       padding: "6px 10px",
+                  //       borderRadius: 4,
+                  //       boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                  //       maxWidth: 300
+                  //     }}
+                  //   >
+                  //     {highlight.label ?? highlight.comment ?? ""}
+                  //   </div>
+                  // )}
+                  // renderHighlight={(highlight, index) => {
+                  //   const color = getHighlightColor(highlight);
+
+                  //   const { boundingRect } = highlight.position;
+
+                  //   return (
+                  //     <div
+                  //       key={index}
+                  //       style={{
+                  //         position: "absolute",
+                  //         background: color,
+                  //         opacity: 0.35,
+                  //         borderRadius: 2,
+                  //         left: boundingRect.left,
+                  //         top: boundingRect.top,
+                  //         width: boundingRect.width,
+                  //         height: boundingRect.height
+                  //       }}
+                  //     />
+                  //   );
+                  // }}
+                  // highlightTransform={(
+                  //     highlight: CommentedHighlight,
+                  //     index: number,
+                  //     setTip: (tip: Tip | null) => void,
+                  //     hideTip: () => void
+                  //   ) => {
+                  //     const color = getHighlightColor(highlight);
+                  //     const { boundingRect } = highlight.position;
+
+                  //     // Build our tooltip
+                  //     const tip: Tip = {
+                  //       position: highlight.position,
+                  //       content: (
+                  //         <div
+                  //           style={{
+                  //             background: "white",
+                  //             padding: "6px 10px",
+                  //             borderRadius: 4,
+                  //             boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                  //             maxWidth: 320
+                  //           }}
+                  //         >
+                  //           {highlight.label ?? highlight.comment ?? ""}
+                  //         </div>
+                  //       )
+                  //     };
+
+                  //     return (
+                  //       <div
+                  //         key={index}
+                  //         onMouseOver={() => setTip(tip)}
+                  //         onMouseOut={hideTip}
+                  //         style={{
+                  //           position: "absolute",
+                  //           background: color,
+                  //           opacity: 0.35,
+                  //           borderRadius: 2,
+                  //           left: boundingRect.x1,
+                  //           top: boundingRect.y1,
+                  //           width: boundingRect.x2 - boundingRect.x1,
+                  //           height: boundingRect.y2 - boundingRect.y1
+                  //         }}
+                  //       />
+                  //     );
+                  //   }}
                 >
                   <HighlightContainer
                     editHighlight={editHighlight}

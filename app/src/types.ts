@@ -5,5 +5,7 @@ export interface CommentedHighlight extends Highlight {
   content: Content;
   comment?: string;
   position: ScaledPosition;
-  metadata?: any;       // <-- add this
+  metadata?: any;
+  label: string;
+  source: "manual" | "ai";
 }

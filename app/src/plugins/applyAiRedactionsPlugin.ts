@@ -387,6 +387,25 @@ export async function applyAiRedactionsPlugin({
       const scaled = normalizedToViewportRect(normRect, pageNumber, viewerObj);
       if (!scaled) continue;
 
+      // const h: CommentedHighlight = {
+      //   id: ai.id ?? String(Math.random()).slice(2),
+      //   content: { text },
+      //   comment: "",
+      //   position: {
+      //     boundingRect: scaled,
+      //     rects: [scaled]
+      //   },
+      //   metadata
+      // };
+      // Extract reason (from "Identified as sensitive PII (Category).")
+      let reason = "AI";
+      if (metadata?.reasoning) {
+        const match = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
+        if (match) reason = match[1]; // e.g. PII
+      }
+
+      const category = metadata?.category ?? "Unknown";
+
       const h: CommentedHighlight = {
         id: ai.id ?? String(Math.random()).slice(2),
         content: { text },
@@ -395,7 +414,9 @@ export async function applyAiRedactionsPlugin({
           boundingRect: scaled,
           rects: [scaled]
         },
-        metadata
+        metadata,
+        source: "ai",
+        label: `AI generated: ${reason} – ${category}`
       };
 
       newHighlights.push(h);
