@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import "./style/Sidebar.css";
+import { Spinner, SpinnerSize } from "@fluentui/react";
 import {
   DefaultButton,
   PrimaryButton,
@@ -711,20 +712,32 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* AI Redaction trigger */}
-      <div style={{ padding: ".5rem", borderBottom: "1px solid #eee", display: "flex", justifyContent: "center" }}>
+      {/* <div style={{ padding: ".5rem", borderBottom: "1px solid #eee", display: "flex", justifyContent: "center" }}>
         <PrimaryButton
           iconProps={{ iconName: "Sparkle" }}
           text={isRedacting ? "Generating…" : "Generate AI Suggested Redactions"}
           disabled={!currentPdfId || isRedacting}
           onClick={() => onStartRedaction()}
         />
-        {/* Optional small status pill */}
         {redactionStatus && (
           <span style={{ marginLeft: 8, alignSelf: "center", fontSize: 12, opacity: 0.8 }}>
             {redactionStatus}
           </span>
         )}
+      </div> */}
+
+      <div style={{ padding: ".5rem", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+        <PrimaryButton
+          iconProps={!isRedacting ? { iconName: "Sparkle" } : undefined}
+          text={isRedacting ? "Generating…" : "Generate AI Suggested Redactions"}
+          disabled={!currentPdfId || isRedacting}
+          onClick={() => onStartRedaction()}
+        />
+        {isRedacting && (
+          <Spinner size={SpinnerSize.small} label={redactionStatus ?? "Starting…"} />
+        )}
       </div>
+
 
       {/* Redactions */}
       <div style={{ borderBottom: "1px solid #eee" }}>
