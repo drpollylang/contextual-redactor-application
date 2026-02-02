@@ -1946,9 +1946,6 @@ const App: React.FC = () => {
   // DEV TEST: Call Durable Function API (redactor-backend-func) - initiate ai pipeline to generate redactions
   // ===============================
   const testStartRedaction = async () => {
-    
-    const backend_key = process.env.PYTHON_FUNC_KEY;
-    const backend_url = process.env.PYTHON_FUNC_URL;
 
     if (!currentPdfId) {
       alert("No PDF loaded!");
@@ -1967,7 +1964,7 @@ const App: React.FC = () => {
     //   body: JSON.stringify({ blobName: blobPath })
     // });
     const res = await fetch(
-      `${backend_url}?code=${backend_key}`,
+      "/api/start-redaction",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
