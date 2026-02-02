@@ -21,11 +21,11 @@ export async function startRedactionHandler(
     return { status: 400, body: "Missing or invalid 'blobName'." };
     }
 
-    const funcUrl = process.env.PY_FUNC_URL; // e.g. https://<func>.azurewebsites.net/api/start_redaction
-    const funcKey = process.env.PY_FUNC_KEY; // function-level key for start_redaction
+    const funcUrl = process.env.PYTHON_FUNC_URL; // e.g. https://<func>.azurewebsites.net/api/start_redaction
+    const funcKey = process.env.PYTHON_FUNC_KEY; // function-level key for start_redaction
 
     if (!funcUrl || !funcKey) {
-      context.error("Missing PY_FUNC_URL or PY_FUNC_KEY in environment.");
+      context.error("Missing PYTHON_FUNC_URL or PYTHON_FUNC_KEY in environment.");
       return { status: 500, body: "Server not configured. Contact the administrator." };
     }
 
