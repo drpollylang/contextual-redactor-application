@@ -1945,68 +1945,187 @@ const App: React.FC = () => {
   // ===============================
   // DEV TEST: Call Durable Function API (redactor-backend-func) - initiate ai pipeline to generate redactions
   // ===============================
-  const testStartRedaction = async () => {
+  // const testStartRedaction = async () => {
 
+  //   if (!currentPdfId) {
+  //     alert("No PDF loaded!");
+  //     return;
+  //   }
+
+  //   const blobPath =
+  //     "files/anonymous/DevTesting/original/Telefonica Redaction Email Example 3 Disability.pdf";
+
+  //   console.log("[AI] Starting redaction for:", blobPath);
+
+  //   // 🔄 call the new SWA path (rewritten to Python Function App)
+  //   // const res = await fetch("/ai/start_redaction", {
+  //   //   method: "POST",
+  //   //   headers: { "Content-Type": "application/json" },
+  //   //   body: JSON.stringify({ blobName: blobPath })
+  //   // });
+  //   const res = await fetch(
+  //     "/api/start-redaction",
+  //     {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ blobName: blobPath })
+  //     }
+  //   );
+
+  //   if (!res.ok) {
+  //     console.error("[AI] Failed to start:", await res.text());
+  //     return;
+  //   }
+
+  //   const data = await res.json();
+  //   console.log("[AI] Start response:", data);
+
+  //   // Durable returns full absolute URL for status on the Function App host.
+  //   // Convert it to the SWA-relative proxy path by prefixing with /ai.
+  //   const u = new URL(data.statusQueryGetUri);
+  //   // const swaStatusUrl = `/ai${u.pathname}${u.search}`;
+  //   const statusUrl = u.toString();   // use the full URL returned by Durable Functions    
+
+  //   const poll = setInterval(async () => {
+  //     // const s = await fetch(swaStatusUrl);
+  //     const s = await fetch(statusUrl);
+  //     if (!s.ok) {
+  //       console.warn("[AI] Poll failed:", s.status);
+  //       return;
+  //     }
+  //     const status = await s.json();
+  //     console.log("[AI] Poll status:", status.runtimeStatus);
+
+  //     if (
+  //       status.runtimeStatus === "Completed" ||
+  //       status.runtimeStatus === "Failed" ||
+  //       status.runtimeStatus === "Terminated"
+  //     ) {
+  //       clearInterval(poll);
+  //       console.log("[AI] Final status:", status);
+  //       // You can now fetch the JSON at status.output.outputBlobPath using your SAS TS function.
+  //     }
+  //   }, 2000);
+  // };
+
+  /* ================================================================
+     Initiate backend AI pipeline - generate AI redaction suggestions
+     ================================================================= */
+  const [isRedacting, setIsRedacting] = useState(false);
+  const [lastRedactionStatus, setLastRedactionStatus] = useState<string | null>(null);
+
+  // Optional: capture the last Durable instanceId for debugging/telemetry
+  const [lastInstanceId, setLastInstanceId] = useState<string | null>(null);
+
+  // Helper to build the source blob path for the current document
+  const getSourceBlobPath = () => {
+    if (!currentPdfId) return null;
+    const projectId = "DevTesting"; // (dev) TODO: wire real project
+    const fileName = uploadedPdfs.find(p => p.id === currentPdfId)?.name;
+    if (!fileName) return null;
+    // Your storage convention during dev:
+    return `files/${userId}/${projectId}/original/${fileName}`;
+  };
+
+  const startRedactionFromSidebar = async () => {
     if (!currentPdfId) {
-      alert("No PDF loaded!");
+      alert("Open a PDF first.");
       return;
     }
 
-    const blobPath =
-      "files/anonymous/DevTesting/original/Telefonica Redaction Email Example 3 Disability.pdf";
+    const blobPath = getSourceBlobPath();
+    if (!blobPath) {
+      alert("Could not determine blob path for current PDF.");
+      return;
+    }
 
-    console.log("[AI] Starting redaction for:", blobPath);
+    try {
+      setIsRedacting(true);
+      setLastRedactionStatus("Submitting");
 
-    // 🔄 call the new SWA path (rewritten to Python Function App)
-    // const res = await fetch("/ai/start_redaction", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ blobName: blobPath })
-    // });
-    const res = await fetch(
-      "/api/start-redaction",
-      {
+      // Kick off orchestration via SWA API proxy
+      const res = await fetch("/api/start-redaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ blobName: blobPath })
+      });
+      if (!res.ok) {
+        throw new Error(await res.text());
       }
-    );
 
-    if (!res.ok) {
-      console.error("[AI] Failed to start:", await res.text());
-      return;
+      const data = await res.json();
+      setLastInstanceId(data?.id ?? null);
+      setLastRedactionStatus("Running");
+      console.log("[AI] Durable instance ID:", lastInstanceId);
+
+      // Durable provides absolute status URL
+      const statusUrl: string = new URL(data.statusQueryGetUri).toString();
+
+      // Poll until terminal state
+      const pollIntervalMs = 2000;
+      const ctrl = new AbortController();
+
+      const pollOnce = async () => {
+        const resp = await fetch(statusUrl, { signal: ctrl.signal });
+        if (!resp.ok) {
+          console.warn("[AI] Status poll failed:", resp.status);
+          return;
+        }
+        const status = await resp.json();
+        const state = status.runtimeStatus as string;
+        setLastRedactionStatus(state);
+
+        if (state === "Completed" || state === "Failed" || state === "Terminated") {
+          ctrl.abort(); // stop polling
+          setIsRedacting(false);
+
+          if (state === "Completed") {
+            // If your orchestrator returns the final highlights in status.output, merge them here.
+            // Your current activity returns `final_output` with `allHighlights` etc.
+            const output = status?.output;
+            if (output?.allHighlights && currentPdfId) {
+              // Merge the output highlights into the current doc
+              const newAll = [...(allHighlights[currentPdfId] ?? []), ...output.allHighlights];
+              const newActive = [
+                ...(docHighlights[currentPdfId] ?? []),
+                ...output.allHighlights
+              ];
+
+              setAllHighlights(prev => ({ ...prev, [currentPdfId]: newAll }));
+              setDocHighlights(prev => ({ ...prev, [currentPdfId]: newActive }));
+              // Optionally persist:
+              persistHighlightsToDB(currentPdfId);
+            }
+
+            // If instead you output only a blob path (e.g., outputBlobPath), you could fetch JSON:
+            // const payload = await fetchJson<HighlightsPayload>("files", status.output.outputBlobPath);
+            // ...then merge as above.
+          }
+        }
+      };
+
+      // Simple interval loop
+      const timer = window.setInterval(() => {
+        // Ignore if already stopped
+        if (ctrl.signal.aborted) {
+          clearInterval(timer);
+          return;
+        }
+        pollOnce().catch(err => {
+          console.warn("[AI] Poll error:", err);
+        });
+      }, pollIntervalMs);
+
+      // Kick the first poll immediately
+      pollOnce().catch(() => {});
+    } catch (err) {
+      console.error("[AI] Start redaction failed:", err);
+      setIsRedacting(false);
+      setLastRedactionStatus("Error");
+      alert(`Redaction start failed: ${(err as Error)?.message ?? err}`);
     }
-
-    const data = await res.json();
-    console.log("[AI] Start response:", data);
-
-    // Durable returns full absolute URL for status on the Function App host.
-    // Convert it to the SWA-relative proxy path by prefixing with /ai.
-    const u = new URL(data.statusQueryGetUri);
-    // const swaStatusUrl = `/ai${u.pathname}${u.search}`;
-    const statusUrl = u.toString();   // use the full URL returned by Durable Functions    
-
-    const poll = setInterval(async () => {
-      // const s = await fetch(swaStatusUrl);
-      const s = await fetch(statusUrl);
-      if (!s.ok) {
-        console.warn("[AI] Poll failed:", s.status);
-        return;
-      }
-      const status = await s.json();
-      console.log("[AI] Poll status:", status.runtimeStatus);
-
-      if (
-        status.runtimeStatus === "Completed" ||
-        status.runtimeStatus === "Failed" ||
-        status.runtimeStatus === "Terminated"
-      ) {
-        clearInterval(poll);
-        console.log("[AI] Final status:", status);
-        // You can now fetch the JSON at status.output.outputBlobPath using your SAS TS function.
-      }
-    }, 2000);
   };
+
 
   /* =========================
      INFO MODAL & History UI
@@ -2034,6 +2153,9 @@ const App: React.FC = () => {
         toggleDocument={() => {}}
         onToggleGroup={onToggleGroup}
         resetEverything={resetEverything}
+        onStartRedaction={startRedactionFromSidebar}
+        isRedacting={isRedacting}
+        redactionStatus={lastRedactionStatus}
       />
 
       {/* MAIN VIEW */}
@@ -2048,12 +2170,12 @@ const App: React.FC = () => {
       >
         
       {/* TEMP TEST BUTTON */}
-        <div style={{ padding: 8 }}>
+        {/* <div style={{ padding: 8 }}>
           <DefaultButton
             text="TEST: Generate AI Suggested Redactions"
             onClick={testStartRedaction}
           />
-        </div>
+        </div> */}
 
         {/* Toolbar (includes ⓘ info button via onShowInfo) */}
         <Toolbar

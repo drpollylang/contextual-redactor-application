@@ -51,6 +51,12 @@ interface SidebarProps {
   // Legacy/misc (not used for rendering lists anymore)
   highlights: Array<CommentedHighlight>;
   toggleDocument: () => void;
+
+  // AI-generated redaction suggestions button
+  onStartRedaction: () => Promise<void>;
+  isRedacting: boolean;
+  redactionStatus?: string | null;
+
 }
 
 /* =========================
@@ -485,6 +491,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   resetHighlights,
   resetEverything,
   toggleDocument,
+  
+  onStartRedaction,
+  isRedacting,
+  redactionStatus,
+
 }) => {
   // All hooks must be inside the component body
   const [sections, setSections] = useState({
@@ -696,6 +707,22 @@ const Sidebar: React.FC<SidebarProps> = ({
               }}
             />
           </div>
+        )}
+      </div>
+
+      {/* AI Redaction trigger */}
+      <div style={{ padding: ".5rem", borderBottom: "1px solid #eee", display: "flex", justifyContent: "center" }}>
+        <PrimaryButton
+          iconProps={{ iconName: "Sparkle" }}
+          text={isRedacting ? "Generating…" : "Generate AI Suggested Redactions"}
+          disabled={!currentPdfId || isRedacting}
+          onClick={() => onStartRedaction()}
+        />
+        {/* Optional small status pill */}
+        {redactionStatus && (
+          <span style={{ marginLeft: 8, alignSelf: "center", fontSize: 12, opacity: 0.8 }}>
+            {redactionStatus}
+          </span>
         )}
       </div>
 
