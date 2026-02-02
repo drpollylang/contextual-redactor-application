@@ -2106,41 +2106,67 @@ const App: React.FC = () => {
           ctrl.abort(); // stop polling
           setIsRedacting(false);
 
-          if (state === "Completed") {
-            // If your orchestrator returns the final highlights in status.output, merge them here.
-            // Your current activity returns `final_output` with `allHighlights` etc.
-            const output = status?.output;
-            // if (output?.allHighlights && currentPdfId) {
-            //   // Merge the output highlights into the current doc
-            //   const newAll = [...(allHighlights[currentPdfId] ?? []), ...output.allHighlights];
-            //   const newActive = [
-            //     ...(docHighlights[currentPdfId] ?? []),
-            //     ...output.allHighlights
-            //   ];
+          // if (state === "Completed") {
+          //   // If your orchestrator returns the final highlights in status.output, merge them here.
+          //   // Your current activity returns `final_output` with `allHighlights` etc.
+          //   const output = status?.output;
+          //   // if (output?.allHighlights && currentPdfId) {
+          //   //   // Merge the output highlights into the current doc
+          //   //   const newAll = [...(allHighlights[currentPdfId] ?? []), ...output.allHighlights];
+          //   //   const newActive = [
+          //   //     ...(docHighlights[currentPdfId] ?? []),
+          //   //     ...output.allHighlights
+          //   //   ];
 
-            //   setAllHighlights(prev => ({ ...prev, [currentPdfId]: newAll }));
-            //   setDocHighlights(prev => ({ ...prev, [currentPdfId]: newActive }));
-            //   // Optionally persist:
-            //   persistHighlightsToDB(currentPdfId);
-            // }
+          //   //   setAllHighlights(prev => ({ ...prev, [currentPdfId]: newAll }));
+          //   //   setDocHighlights(prev => ({ ...prev, [currentPdfId]: newActive }));
+          //   //   // Optionally persist:
+          //   //   persistHighlightsToDB(currentPdfId);
+          //   // }
             
+          //   await applyAiRedactionsPlugin({
+          //       payload: output,         // your activity returns final_output
+          //       currentPdfId,
+          //       viewer: () => highlighterUtilsRef.current?.getViewer?.() ?? null,
+
+          //       setAllHighlights,
+          //       setDocHighlights,
+
+          //       pushUndoState,
+          //       getSnapshot,
+          //       logHistory,
+
+          //       persist: persistHighlightsToDB,
+          //     });
+          //   // If instead you output only a blob path (e.g., outputBlobPath), you could fetch JSON:
+          //   // const payload = await fetchJson<HighlightsPayload>("files", status.output.outputBlobPath);
+          //   // ...then merge as above.
+          // }
+          if (state === "Completed") {
+            console.log("[AI] Orchestration COMPLETED. Payload:", status.output);
+
+            const viewerObj = highlighterUtilsRef.current?.getViewer?.();
+            console.log("[AI] viewerObj:", viewerObj);
+
+            if (!viewerObj) {
+              console.warn("[AI] Viewer not ready — retrying in 500ms");
+              setTimeout(() => startRedactionFromSidebar(), 500);
+              return;
+            }
+
+            console.log("[AI] Calling plugin...");
             await applyAiRedactionsPlugin({
-                payload: output,         // your activity returns final_output
-                currentPdfId,
-                viewer: () => highlighterUtilsRef.current?.getViewer?.() ?? null,
-
-                setAllHighlights,
-                setDocHighlights,
-
-                pushUndoState,
-                getSnapshot,
-                logHistory,
-
-                persist: persistHighlightsToDB,
-              });
-            // If instead you output only a blob path (e.g., outputBlobPath), you could fetch JSON:
-            // const payload = await fetchJson<HighlightsPayload>("files", status.output.outputBlobPath);
-            // ...then merge as above.
+              payload: status.output,
+              currentPdfId,
+              viewer: () => viewerObj,
+              setAllHighlights,
+              setDocHighlights,
+              pushUndoState,
+              getSnapshot,
+              logHistory,
+              persist: persistHighlightsToDB
+            });
+            console.log("[AI] Plugin DONE.");
           }
         }
       };
