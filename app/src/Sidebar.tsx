@@ -1311,7 +1311,8 @@ export const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
     const map = new Map<string, CommentedHighlight[]>();
 
     for (const h of all) {
-      const cat = h.metadata?.category ?? "Uncategorised";
+      // const cat = h.metadata?.category ?? "Uncategorised";
+      const cat = h.category ?? "Uncategorised";
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(h);
     }
@@ -1451,7 +1452,7 @@ export const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
     <div>
       {categoryGroups.map((cg) => (
         <div key={cg.category}>
-          <h4
+          {/* <h4
             style={{
               margin: "8px 0 4px 0",
               padding: "4px 8px",
@@ -1464,7 +1465,7 @@ export const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
             }}
           >
             {cg.category}
-          </h4>
+          </h4> */}
 
           {cg.textGroups.map((group, index) => {
             const focused = flattenedTextGroups[focusedIndex]?.key === group.key;
@@ -1803,7 +1804,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     const categoryMap = new Map<string, CommentedHighlight[]>();
 
     for (const h of allForCurrent) {
-      const cat = h.metadata?.category ?? "Uncategorised";
+      // const cat = h.metadata?.category ?? "Uncategorised";
+      const cat = h.category ?? "Uncategorised";
       if (!categoryMap.has(cat)) categoryMap.set(cat, []);
       categoryMap.get(cat)!.push(h);
     }
@@ -2021,7 +2023,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                   )
                 )
               ).map((cat: string) => {
-                const active = highlightFilters.categories.includes(cat);
+                // const active = highlightFilters.categories.includes(cat);
+                const allSelected = highlightFilters.categories.length === 0;
+                const active = allSelected || highlightFilters.categories.includes(cat);
 
                 return (
                   <span
@@ -2095,7 +2099,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 // Filter active list (already filtered at App level)
                 const activeInCategory = currentHighlights.filter(
-                  (h) => h.metadata?.category === category
+                  (h) => h.category === category
                 );
 
                 return (
@@ -2128,7 +2132,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {expandedCategories[category] && (
                       <div style={{ paddingLeft: 6 }}>
                         <GroupedRedactions
-                          all={items}                     // category's items (filtered by viewer)
+                          all={activeInCategory}                     // category's items (filtered by viewer)
                           active={activeInCategory}      // only those active for this category
                           onToggleGroup={onToggleGroup}
                           toggleSingle={toggleHighlightCheckbox}
