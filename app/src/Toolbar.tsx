@@ -268,7 +268,7 @@ const Toolbar: React.FC<ToolbarProps> =
             icon: { color: "#cfd8e3" },
             clearButton: { color: "#cfd8e3" },
           }}
-          placeholder="Search highlights…"
+          placeholder="Search redactions..."
           value={searchQuery}
           onChange={(_, v) => onChangeSearch(v ?? "")}
           onClear={onClearSearch}

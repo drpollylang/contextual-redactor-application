@@ -8,4 +8,5 @@ export interface CommentedHighlight extends Highlight {
   metadata?: any;
   label: string;
   source: "manual" | "ai";
+  category: string;
 }

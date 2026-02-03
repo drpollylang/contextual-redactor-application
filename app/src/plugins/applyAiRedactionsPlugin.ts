@@ -399,9 +399,13 @@ export async function applyAiRedactionsPlugin({
       // };
       // Extract reason (from "Identified as sensitive PII (Category).")
       let reason = "AI";
+      let top_level_category = "Sensitive Information (Misc)";
       if (metadata?.reasoning) {
         const match = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
         if (match) reason = match[1]; // e.g. PII
+        if (metadata.reasoning.contains(" PII ")) {
+          top_level_category = "PII";
+        }
       }
 
       const category = metadata?.category ?? "Unknown";
@@ -416,7 +420,8 @@ export async function applyAiRedactionsPlugin({
         },
         metadata,
         source: "ai",
-        label: `AI generated: ${reason} – ${category}`
+        label: `AI generated: ${reason} – ${category}`,
+        category: `${top_level_category} (${category})`
       };
 
       newHighlights.push(h);

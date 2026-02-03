@@ -154,7 +154,7 @@ const App: React.FC = () => {
 
     // Filter by category
     if (highlightFilters.category !== "all") {
-      list = list.filter(h => h.metadata?.category === highlightFilters.category);
+      list = list.filter(h => h.category === highlightFilters.category);
     }
 
     // Free text filter
@@ -551,7 +551,8 @@ const App: React.FC = () => {
       metadata: h.metadata ?? null,
       position: ensurePosition(h),
       label: h.label ?? "",
-      source: h.source ?? "manual"
+      source: h.source ?? "manual",
+      category: h.category ?? "Sensitive Information (Misc)"
     };
   }
 
@@ -882,6 +883,7 @@ const App: React.FC = () => {
     // Build manual label: "<userId> added <local date/time>: <optional comment>"
       const timestamp = new Date().toLocaleString();
       const label = `${userId} added ${timestamp}`;
+      const category = "Sensitive Information (Misc)"
 
       const h: CommentedHighlight = {
         id: getNextId(),
@@ -890,7 +892,8 @@ const App: React.FC = () => {
         position: ghost.position as any,        // ScaledPosition-compatible
         metadata: undefined,
         source: "manual",
-        label
+        label: label,
+        category: category
       };
 
     const nextAll = {
@@ -1979,7 +1982,8 @@ const App: React.FC = () => {
           content: { text: clean },
           position: o.position as any,
           label: `${userId} applied ${new Date().toLocaleString()}`,
-          source: 'manual'
+          source: 'manual',
+          category: "Sensitive Information (Misc)"
         });
       }
 

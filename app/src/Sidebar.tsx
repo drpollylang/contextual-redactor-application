@@ -808,7 +808,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             Array.from(
               new Set(
                 (currentPdfId ? allHighlights[currentPdfId] ?? [] : [])
-                  .map((h: CommentedHighlight) => h.metadata?.category as string | undefined)
+                  .map((h: CommentedHighlight) => h.category as string | undefined)
                   .filter((cat): cat is string => Boolean(cat))
               )
             )
