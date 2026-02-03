@@ -32,10 +32,11 @@ export function getHighlightColor(h: AnyHighlight): string {
 
   if (source === "ai") {
     switch (category) {
-      case "Person":      return "rgba(255, 99, 71, 0.35)";   // Tomato
-      case "DateOfBirth": return "rgba(30, 144, 255, 0.35)";  // DodgerBlue
-      case "Address":     return "rgba(255, 165, 0, 0.35)";   // Orange
-      case "School":      return "rgba(60, 179, 113, 0.35)";  // SeaGreen
+      case "PII (Person)":      return "rgba(255, 99, 71, 0.35)";   // Tomato
+      case "PII (DateOfBirth)": return "rgba(30, 144, 255, 0.35)";  // DodgerBlue
+      case "PII (Address)":     return "rgba(255, 165, 0, 0.35)";   // Orange
+      case "PII (School)":      return "rgba(60, 179, 113, 0.35)";  // SeaGreen
+      case "Sensitive Information (Misc)":      return "rgba(242, 213, 120, 1)";  // Yellow
       default:            return "rgba(128, 0, 128, 0.35)";   // Purple
     }
   }
