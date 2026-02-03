@@ -159,7 +159,7 @@ const App: React.FC = () => {
     // }
     if (highlightFilters.categories.length > 0) {
       list = list.filter(h =>
-        highlightFilters.categories.includes(h.metadata?.category)
+        highlightFilters.categories.includes(h.category)
       );
     }
 
