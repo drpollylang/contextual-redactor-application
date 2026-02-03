@@ -135,7 +135,8 @@ const App: React.FC = () => {
   // === Filter state ===
   const [highlightFilters, setHighlightFilters] = useState({
     source: "all",      // "all" | "manual" | "ai"
-    category: "all",    // "all" | category string
+    // category: "all",    // "all" | category string
+    categories: [] as string[],
     text: ""
   });
 
@@ -153,8 +154,13 @@ const App: React.FC = () => {
     }
 
     // Filter by category
-    if (highlightFilters.category !== "all") {
-      list = list.filter(h => h.category === highlightFilters.category);
+    // if (highlightFilters.category !== "all") {
+    //   list = list.filter(h => h.category === highlightFilters.category);
+    // }
+    if (highlightFilters.categories.length > 0) {
+      list = list.filter(h =>
+        highlightFilters.categories.includes(h.metadata?.category)
+      );
     }
 
     // Free text filter

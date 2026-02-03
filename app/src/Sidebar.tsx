@@ -31,7 +31,7 @@ interface SidebarProps {
 
   highlightFilters: {
     source: string;
-    category: string;
+    categories: string[];
     text: string;
   };
   setHighlightFilters: (f: any) => void;
@@ -512,6 +512,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   // All hooks must be inside the component body
   const [sections, setSections] = useState({
     documents: true,
+    filters: true,
     highlights: true,
   });
 
@@ -750,8 +751,13 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* === FILTERS === */}
-      <div style={{ padding: ".5rem", borderBottom: "1px solid #eee" }}>
-        <h4 style={{ margin: "4px 0" }}>Filter Redactions</h4>
+      <div onClick={() => toggleSection("filters")} className="sidebar-section-header">
+          Filter Redactions {sections.filters ? "▾" : "▸"}
+        </div>
+        {sections.filters && (
+          <div className="sidebar-section-content" style={{ maxHeight: "25vh" }}>
+      {/* <div style={{ padding: ".5rem", borderBottom: "1px solid #eee" }}>
+        <h4 style={{ margin: "4px 0" }}>Filter Redactions</h4> */}
 
         {/* Filter by source */}
         <select
@@ -791,7 +797,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </select>   */}
         {/* Filter by category */}
-        <select
+        {/* <select
           value={highlightFilters.category}
           onChange={(e) =>
             setHighlightFilters((f: typeof highlightFilters) => ({
@@ -817,7 +823,53 @@ const Sidebar: React.FC<SidebarProps> = ({
               {cat}
             </option>
           ))}
-        </select>
+        </select> */}
+        {/* === MULTI-SELECT CATEGORY FILTER === */}
+        <div style={{ marginBottom: 12 }}>
+          <h4 style={{ margin: "4px 0" }}>Categories</h4>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {(
+              Array.from(
+                new Set(
+                  (currentPdfId ? allHighlights[currentPdfId] ?? [] : [])
+                    .map((h: CommentedHighlight) => h.metadata?.category as string | undefined)
+                    .filter((x): x is string => Boolean(x))
+                )
+              )
+            ).map((cat: string) => {
+              const active = highlightFilters.categories.includes(cat);
+
+              return (
+                <span
+                  key={cat}
+                  onClick={() =>
+                    setHighlightFilters((f: typeof highlightFilters) => {
+                      const selected = new Set(f.categories);
+                      if (active) selected.delete(cat);
+                      else selected.add(cat);
+                      return { ...f, categories: [...selected] };
+                    })
+                  }
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    fontSize: 12,
+                    background: active
+                      ? "rgba(60, 120, 200, 0.8)"   // selected chip colour
+                      : "rgba(220, 220, 220, 0.9)", // unselected
+                    color: active ? "white" : "#333",
+                    border: active ? "1px solid #1e3a8a" : "1px solid #ccc",
+                    userSelect: "none"
+                  }}
+                >
+                  {cat}
+                </span>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Free text filter */}
         <input
@@ -830,6 +882,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           style={{ width: "100%" }}
         />
       </div>
+        )};
 
       {/* Redactions */}
       <div style={{ borderBottom: "1px solid #eee" }}>
