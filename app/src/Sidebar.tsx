@@ -180,17 +180,17 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
         const shouldCheck = group.items.some((it) => !activeSet.has(it.id));
         onToggleGroup(group.items, shouldCheck);
       }
-      if (key.toLowerCase() === "o") {
+      if (e.ctrlKey && key.toLowerCase() === "o") {
         e.preventDefault();
         toggleExpand(group.key);
       }
-      if (key.toLowerCase() === "e") {
+      if (e.ctrlKey && key.toLowerCase() === "e") {
         e.preventDefault();
         const next: Record<string, boolean> = {};
         for (const g of groups) next[g.key] = true;
         setExpanded(next);
       }
-      if (key.toLowerCase() === "c") {
+      if (e.ctrlKey && key.toLowerCase() === "c") {
         e.preventDefault();
         const next: Record<string, boolean> = {};
         for (const g of groups) next[g.key] = false;

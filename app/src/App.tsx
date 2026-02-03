@@ -2634,19 +2634,19 @@ const App: React.FC = () => {
                 <strong>Space / Enter</strong> — Toggle selected group
               </li>
               <li>
-                <strong>O</strong> — Expand/collapse selected group
+                <strong>Ctrl + O</strong> — Expand/collapse selected group
               </li>
               <li>
-                <strong>E</strong> — Expand all groups
+                <strong>Ctrl + E</strong> — Expand all groups
               </li>
               <li>
-                <strong>C</strong> — Collapse all groups
+                <strong>Ctrl + C</strong> — Collapse all groups
               </li>
               <li>
                 <strong>Ctrl+Z / ⌘Z</strong> - Undo
               </li>
               <li>
-                <strong>trl+Shift+Z / ⌘⇧Z</strong> - Redo
+                <strong>Ctrl+Shift+Z / ⌘⇧Z</strong> - Redo
               </li>
               <li>
                 <strong>Ctrl + Shft + h</strong> — View history timeline
