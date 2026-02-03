@@ -28,7 +28,7 @@ type AnyHighlight =
 export function getHighlightColor(h: AnyHighlight): string {
   // "ai" vs "manual" lives on the data object for both shapes
   const source = (h as any).source ?? "manual";
-  const category = (h as any).metadata?.category;
+  const category = (h as any).category;
 
   if (source === "ai") {
     switch (category) {
