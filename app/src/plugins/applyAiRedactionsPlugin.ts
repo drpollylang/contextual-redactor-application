@@ -403,10 +403,14 @@ export async function applyAiRedactionsPlugin({
       if (metadata?.reasoning) {
         const match = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
         if (match) reason = match[1]; // e.g. PII
-        if (metadata.reasoning.contains(" PII ")) {
+        if (metadata.reasoning.includes(" PII ")) {
           top_level_category = "PII";
         }
       }
+
+      // TODO: create more discrete categories for contextual prompt instructions 
+      // e.g. Sensitive Information (Medical), Sensitive Information (Police), SI (Personal Relationships), 
+      // SI (Employment), SI (Financial), SI (Personal e.g. sexual orientation/gender) 
 
       const category = metadata?.category ?? "Unknown";
 
