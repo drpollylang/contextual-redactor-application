@@ -1254,45 +1254,47 @@ const getDisplayLabel = (h: CommentedHighlight): string => {
   return `(No text)${pg ? ` — Page ${pg}` : ""}`;
 };
 
-const sidebarButtonStyles = {
-  compactPrimary: { root: { height: 28, padding: "0 8px" } },
-  compactAction: { root: { height: 28, padding: "0 6px", minWidth: 0 } },
-  compactIcon: {
-    root: { height: 28, width: 28, padding: 0 },
-    rootHovered: { background: "rgba(0,0,0,0.04)" },
-    rootPressed: { background: "rgba(0,0,0,0.08)" },
-  },
-  dangerIcon: {
-    root: { color: "#a80000" },
-    rootHovered: { background: "rgba(168,0,0,0.08)" },
-    rootPressed: { background: "rgba(168,0,0,0.16)" },
-  },
-};
+// const sidebarButtonStyles = {
+//   compactPrimary: { root: { height: 28, padding: "0 8px" } },
+//   compactAction: { root: { height: 28, padding: "0 6px", minWidth: 0 } },
+//   compactIcon: {
+//     root: { height: 28, width: 28, padding: 0 },
+//     rootHovered: { background: "rgba(0,0,0,0.04)" },
+//     rootPressed: { background: "rgba(0,0,0,0.08)" },
+//   },
+//   dangerIcon: {
+//     root: { color: "#a80000" },
+//     rootHovered: { background: "rgba(168,0,0,0.08)" },
+//     rootPressed: { background: "rgba(168,0,0,0.16)" },
+//   },
+// };
 
 /* ============================================================
-   GroupedRedactions (A2 Robust Category → TextGroup → Items)
+   GroupedRedactions — Corrected Version (Text-Only Grouping)
+   ------------------------------------------------------------
+   • Receives ALL items for a single category via `all`
+   • Receives ACTIVE items for that category via `active`
+   • Performs TEXT grouping ONLY (no category logic)
+   • Stable object identity → no deletion bugs
+   • Checkbox toggles only activate/deactivate (does NOT delete)
+   • Sidebar handles category grouping + header colours
 ============================================================ */
+
+export interface GroupedRedactionsProps {
+  all: CommentedHighlight[];                       // all items for this category
+  active: CommentedHighlight[];                    // active (checked) items for this category
+  onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
+  toggleSingle: (item: CommentedHighlight, checked: boolean) => void;
+  onApplyAllGroup: (items: CommentedHighlight[]) => void;
+  onRemoveHighlight: (item: CommentedHighlight) => void;
+  onRemoveGroup: (items: CommentedHighlight[]) => void;
+}
 
 type TextGroup = {
   key: string;
   label: string;
   items: CommentedHighlight[];
 };
-
-type CategoryGroup = {
-  category: string;
-  textGroups: TextGroup[];
-};
-
-interface GroupedRedactionsProps {
-  all: CommentedHighlight[];
-  active: CommentedHighlight[];
-  onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
-  toggleSingle: (highlight: CommentedHighlight, checked: boolean) => void;
-  onApplyAllGroup: (items: CommentedHighlight[]) => void;
-  onRemoveHighlight: (item: CommentedHighlight) => void;
-  onRemoveGroup: (items: CommentedHighlight[]) => void;
-}
 
 export const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
   all,
@@ -1303,116 +1305,94 @@ export const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
   onRemoveHighlight,
   onRemoveGroup,
 }) => {
-  /* ------------------------------
-     Build A2 Robust Category Groups
-  ------------------------------ */
 
-  const categoryGroups: CategoryGroup[] = React.useMemo(() => {
-    const map = new Map<string, CommentedHighlight[]>();
+  /* ----------------------------------------------------------
+     1) Text-only grouping (A2 robust: unique per category)
+     ---------------------------------------------------------- */
+  const textGroups: TextGroup[] = React.useMemo(() => {
+    const map = new Map<string, TextGroup>();
 
     for (const h of all) {
-      // const cat = h.metadata?.category ?? "Uncategorised";
-      const cat = h.category ?? "Uncategorised";
-      if (!map.has(cat)) map.set(cat, []);
-      map.get(cat)!.push(h);
+      const raw = h.content?.text ?? "";
+      const key = normalizeText(raw) || "__no_text__";
+      const label = getDisplayLabel(h);
+
+      if (!map.has(key)) {
+        map.set(key, { key, label, items: [] });
+      }
+      map.get(key)!.items.push(h);
     }
 
-    // Alphabetical sort (user requirement)
-    const sortedCategories = [...map.keys()].sort((a, b) =>
-      a.localeCompare(b)
-    );
-
-    // For each category: group by TEXT with category‑specific key
-    return sortedCategories.map((cat) => {
-      const list = map.get(cat)!;
-
-      const textMap = new Map<string, TextGroup>();
-
-      for (const h of list) {
-        const raw = h.content?.text ?? "";
-        const textKey = `${cat}::${normalizeText(raw) || "__no_text__"}`;
-        const label = getDisplayLabel(h);
-
-        if (!textMap.has(textKey)) {
-          textMap.set(textKey, { key: textKey, label, items: [] });
-        }
-        textMap.get(textKey)!.items.push(h);
-      }
-
-      return {
-        category: cat,
-        textGroups: [...textMap.values()],
-      };
-    });
+    return [...map.values()];
   }, [all]);
 
-  /* ------------------------------
-     Active + Expand Logic
-  ------------------------------ */
+  if (textGroups.length === 0) {
+    return <div style={{ opacity: 0.6 }}>No redactions yet.</div>;
+  }
 
+  /* ----------------------------------------------------------
+     2) Active state and group expansion
+     ---------------------------------------------------------- */
   const activeSet = new Set(active.map((h) => h.id));
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggleExpand = (key: string) =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  /* ------------------------------
-     Keyboard Navigation (unchanged)
-  ------------------------------ */
-
-  const flattenedTextGroups = categoryGroups.flatMap((cg) => cg.textGroups);
+  /* ----------------------------------------------------------
+     3) Keyboard navigation (unchanged)
+     ---------------------------------------------------------- */
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   useEffect(() => {
-    if (flattenedTextGroups.length === 0) {
-      setFocusedIndex(0);
-      return;
+    if (focusedIndex >= textGroups.length) {
+      setFocusedIndex(Math.max(0, textGroups.length - 1));
     }
-    if (focusedIndex >= flattenedTextGroups.length) {
-      setFocusedIndex(flattenedTextGroups.length - 1);
-    }
-  }, [flattenedTextGroups, focusedIndex]);
+  }, [focusedIndex, textGroups.length]);
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
-      if (flattenedTextGroups.length === 0) return;
+      if (textGroups.length === 0) return;
 
       const key = e.key;
-      const fg = flattenedTextGroups[focusedIndex];
+      const group = textGroups[focusedIndex];
 
       if (key === "ArrowDown") {
         e.preventDefault();
-        setFocusedIndex((i) =>
-          Math.min(i + 1, flattenedTextGroups.length - 1)
-        );
+        setFocusedIndex((i) => Math.min(i + 1, textGroups.length - 1));
       }
+
       if (key === "ArrowUp") {
         e.preventDefault();
         setFocusedIndex((i) => Math.max(i - 1, 0));
       }
+
       if (key === " " || key === "Enter") {
         e.preventDefault();
-        const shouldCheck = fg.items.some((it) => !activeSet.has(it.id));
-        onToggleGroup(fg.items, shouldCheck);
+        const shouldCheck = group.items.some((h) => !activeSet.has(h.id));
+        onToggleGroup(group.items, shouldCheck);
       }
+
       if (e.ctrlKey && key.toLowerCase() === "o") {
         e.preventDefault();
-        toggleExpand(fg.key);
+        toggleExpand(group.key);
       }
+
       if (e.ctrlKey && key.toLowerCase() === "e") {
         e.preventDefault();
-        const next: Record<string, boolean> = {};
-        for (const f of flattenedTextGroups) next[f.key] = true;
-        setExpanded(next);
+        const expandedAll: Record<string, boolean> = {};
+        textGroups.forEach((g) => (expandedAll[g.key] = true));
+        setExpanded(expandedAll);
       }
+
       if (e.ctrlKey && key.toLowerCase() === "c") {
         e.preventDefault();
-        const next: Record<string, boolean> = {};
-        for (const f of flattenedTextGroups) next[f.key] = false;
-        setExpanded(next);
+        const collapsed: Record<string, boolean> = {};
+        textGroups.forEach((g) => (collapsed[g.key] = false));
+        setExpanded(collapsed);
       }
     },
-    [flattenedTextGroups, focusedIndex, activeSet, onToggleGroup]
+    [focusedIndex, textGroups, activeSet, onToggleGroup]
   );
 
   useEffect(() => {
@@ -1420,255 +1400,232 @@ export const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
     return () => window.removeEventListener("keydown", handleKey);
   }, [handleKey]);
 
-  /* ------------------------------
-     Dialog for deleting a text group
-  ------------------------------ */
-
+  /* ----------------------------------------------------------
+     4) Delete group confirmation dialog
+     ---------------------------------------------------------- */
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingGroup, setPendingGroup] = useState<TextGroup | null>(null);
 
-  const openConfirm = (tg: TextGroup) => {
-    setPendingGroup(tg);
+  const openConfirm = (g: TextGroup) => {
+    setPendingGroup(g);
     setConfirmOpen(true);
   };
+
   const closeConfirm = () => {
     setConfirmOpen(false);
     setPendingGroup(null);
   };
+
   const confirmDelete = () => {
-    if (pendingGroup) onRemoveGroup(pendingGroup.items);
+    if (pendingGroup) {
+      onRemoveGroup(pendingGroup.items);
+    }
     closeConfirm();
   };
 
-  /* ------------------------------
-     Render
-  ------------------------------ */
-
-  if (flattenedTextGroups.length === 0) {
-    return <div style={{ opacity: 0.6 }}>No redactions yet.</div>;
-  }
+  /* ----------------------------------------------------------
+     5) Render
+     ---------------------------------------------------------- */
 
   return (
     <div>
-      {categoryGroups.map((cg) => (
-        <div key={cg.category}>
-          {/* <h4
+      {textGroups.map((group, idx) => {
+        const focused = idx === focusedIndex;
+
+        const total = group.items.length;
+        const activeCount = group.items.filter((h) => activeSet.has(h.id))
+          .length;
+
+        const isChecked = total > 0 && activeCount === total;
+        const isIndeterminate = activeCount > 0 && activeCount < total;
+
+        const checkboxId = `txtgrp-${group.key}`;
+
+        return (
+          <div
+            key={group.key}
             style={{
-              margin: "8px 0 4px 0",
-              padding: "4px 8px",
-              background: getHighlightColor({
-                source: "ai",
-                metadata: { category: cg.category },
-              } as any),
-              color: "white",
               borderRadius: 4,
+              padding: focused ? "4px" : 0,
+              background: focused ? "rgba(0, 120, 212, 0.15)" : "transparent",
             }}
           >
-            {cg.category}
-          </h4> */}
+            {/* ───────────────────────────────────────────────
+                GROUP HEADER
+               ─────────────────────────────────────────────── */}
+            <div
+              className="sidebar-highlight-item"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+              }}
+              title={group.label}
+            >
+              {/* Group checkbox */}
+              <input
+                id={checkboxId}
+                type="checkbox"
+                checked={isChecked}
+                aria-checked={isIndeterminate ? "mixed" : isChecked}
+                ref={(el) => {
+                  if (el) el.indeterminate = isIndeterminate;
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => onToggleGroup(group.items, e.target.checked)}
+              />
 
-          {cg.textGroups.map((group, index) => {
-            const focused = flattenedTextGroups[focusedIndex]?.key === group.key;
-            const total = group.items.length;
-            const activeCount = group.items.filter((h) =>
-              activeSet.has(h.id)
-            ).length;
-            const isChecked = total > 0 && activeCount === total;
-            const isIndeterminate =
-              activeCount > 0 && activeCount < total;
-            const checkboxId = `txtgrp-${group.key}`;
+              <label
+                htmlFor={checkboxId}
+                onClick={(e) => e.stopPropagation()}
+                style={{ cursor: "pointer", userSelect: "none" }}
+              />
 
-            return (
-              <div
-                key={group.key}
+              {/* Expand/collapse */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleExpand(group.key);
+                }}
+                className="sidebar-disclosure"
                 style={{
-                  borderRadius: 4,
-                  padding: focused ? "4px" : 0,
-                  background: focused
-                    ? "rgba(0, 120, 212, 0.15)"
-                    : "transparent",
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  padding: 0,
+                  width: 18,
+                }}
+                aria-expanded={!!expanded[group.key]}
+              >
+                {expanded[group.key] ? "▾" : "▸"}
+              </button>
+
+              {/* Text label */}
+              <span
+                className="sidebar-highlight-text"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleExpand(group.key);
+                }}
+                style={{ cursor: "pointer", userSelect: "none" }}
+              >
+                {group.label}
+              </span>
+
+              {total > 1 && (
+                <span style={{ fontSize: 11, opacity: 0.7 }}>×{total}</span>
+              )}
+
+              <span style={{ flex: 1 }} />
+
+              {/* Apply to all */}
+              <ActionButton
+                iconProps={{ iconName: "CheckMark" }}
+                styles={{ root: { height: 26, padding: "0 6px" } }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onApplyAllGroup(group.items);
                 }}
               >
-                {/* TEXT GROUP HEADER */}
-                <div
-                  className="sidebar-highlight-item"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
+                Apply To All
+              </ActionButton>
+
+              {/* Remove whole group */}
+              <TooltipHost content="Remove this group">
+                <IconButton
+                  iconProps={{ iconName: "Delete" }}
+                  styles={{ root: { height: 26, width: 26 } }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openConfirm(group);
                   }}
-                  title={group.label}
-                >
-                  <input
-                    id={checkboxId}
-                    type="checkbox"
-                    checked={isChecked}
-                    aria-checked={isIndeterminate ? "mixed" : isChecked}
-                    ref={(el) => {
-                      if (el) el.indeterminate = isIndeterminate;
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) =>
-                      onToggleGroup(group.items, e.target.checked)
-                    }
-                  />
+                />
+              </TooltipHost>
+            </div>
 
-                  <label
-                    htmlFor={checkboxId}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleExpand(group.key);
-                    }}
-                    className="sidebar-disclosure"
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      padding: 0,
-                      width: 18,
-                    }}
-                    aria-expanded={!!expanded[group.key]}
-                  >
-                    {expanded[group.key] ? "▾" : "▸"}
-                  </button>
-
-                  <span
-                    className="sidebar-highlight-text"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleExpand(group.key);
-                    }}
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                  >
-                    {group.label}
-                  </span>
-
-                  {total > 1 && (
-                    <span style={{ fontSize: 11, opacity: 0.7 }}>×{total}</span>
-                  )}
-
-                  <span style={{ flex: 1 }} />
-
-                  {/* Apply all */}
-                  <ActionButton
-                    styles={sidebarButtonStyles.compactAction}
-                    iconProps={{ iconName: "CheckMark" }}
-                    title="Apply to all instances"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onApplyAllGroup(group.items);
-                    }}
-                  >
-                    Apply To All
-                  </ActionButton>
-
-                  {/* Delete group */}
-                  <TooltipHost content="Remove all in this group">
-                    <IconButton
-                      styles={{
-                        ...sidebarButtonStyles.compactIcon,
-                        ...sidebarButtonStyles.dangerIcon,
+            {/* ───────────────────────────────────────────────
+                ITEMS
+               ─────────────────────────────────────────────── */}
+            {expanded[group.key] && (
+              <div style={{ paddingLeft: 28, marginTop: 2 }}>
+                {group.items.map((item, i) => {
+                  const checked = activeSet.has(item.id);
+                  return (
+                    <label
+                      key={item.id}
+                      className="sidebar-highlight-item"
+                      style={{
+                        padding: "2px 0",
+                        alignItems: "center",
+                        display: "flex",
+                        gap: 8,
                       }}
-                      iconProps={{ iconName: "Delete" }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openConfirm(group);
-                      }}
-                    />
-                  </TooltipHost>
-                </div>
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          toggleSingle(item, e.target.checked)
+                        }
+                      />
 
-                {/* Items */}
-                {expanded[group.key] && (
-                  <div style={{ paddingLeft: 28, marginTop: 2 }}>
-                    {group.items.map((item, idx) => {
-                      const checked = activeSet.has(item.id);
-                      return (
-                        <label
-                          key={item.id}
-                          className="sidebar-highlight-item"
-                          style={{
-                            padding: "2px 0",
-                            alignItems: "center",
-                            display: "flex",
-                            gap: 8,
-                          }}
-                          title={item.content?.text}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) =>
-                              toggleSingle(item, e.target.checked)
-                            }
-                          />
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          flex: 1,
+                        }}
+                      >
+                        <span style={{ fontSize: 12 }}>
+                          Redaction {i + 1} — Page{" "}
+                          {item.position.boundingRect.pageNumber}
+                        </span>
 
-                          <div
-                            style={{
-                              flex: 1,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 8,
+                        <TooltipHost content="Remove this redaction">
+                          <IconButton
+                            iconProps={{ iconName: "Delete" }}
+                            styles={{ root: { height: 26, width: 26 } }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onRemoveHighlight(item);
                             }}
-                          >
-                            <span style={{ fontSize: 12 }}>
-                              Redaction {idx + 1} — Page{" "}
-                              {item.position.boundingRect.pageNumber}
-                            </span>
-
-                            <TooltipHost content="Remove this redaction">
-                              <IconButton
-                                styles={{
-                                  ...sidebarButtonStyles.compactIcon,
-                                  ...sidebarButtonStyles.dangerIcon,
-                                }}
-                                iconProps={{ iconName: "Delete" }}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  onRemoveHighlight(item);
-                                }}
-                              />
-                            </TooltipHost>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+                          />
+                        </TooltipHost>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      ))}
+            )}
+          </div>
+        );
+      })}
 
-      {/* Delete Text Group Dialog */}
+      {/* ───────────────────────────────────────────────
+          DELETE GROUP DIALOG
+         ─────────────────────────────────────────────── */}
       <Dialog
         hidden={!confirmOpen}
         onDismiss={closeConfirm}
         dialogContentProps={{
           type: DialogType.normal,
-          title: "Remove this group?",
-          subText:
-            pendingGroup! &&
-            `This will remove ${pendingGroup.items.length} redaction(s) for "${pendingGroup.label}".`,
+          title: "Remove all redactions in this group?",
+          subText: pendingGroup
+            ? `This will permanently remove ${pendingGroup.items.length} redaction(s) for “${pendingGroup.label}”.`
+            : undefined,
         }}
       >
         <DialogFooter>
-          <PrimaryButton onClick={confirmDelete} text="Remove" />
+          <PrimaryButton onClick={confirmDelete} text="Remove Group" />
           <DefaultButton onClick={closeConfirm} text="Cancel" />
         </DialogFooter>
       </Dialog>
@@ -2018,24 +1975,34 @@ const Sidebar: React.FC<SidebarProps> = ({
                 Array.from(
                   new Set(
                     (currentPdfId ? allHighlights[currentPdfId] ?? [] : [])
-                      .map((h: CommentedHighlight) => h.metadata?.category as string | undefined)
+                      .map((h: CommentedHighlight) => h.category as string | undefined)
                       .filter((x): x is string => Boolean(x))
                   )
                 )
               ).map((cat: string) => {
                 // const active = highlightFilters.categories.includes(cat);
-                const allSelected = highlightFilters.categories.length === 0;
-                const active = allSelected || highlightFilters.categories.includes(cat);
+                const allSelected = (highlightFilters.categories.length ?? 0) === 0;
+                // const active = allSelected || highlightFilters.categories.includes(cat);
+                const isActive = allSelected || highlightFilters.categories.includes(cat);
 
                 return (
                   <span
                     key={cat}
                     onClick={() =>
                       setHighlightFilters((f: typeof highlightFilters) => {
-                        const selected = new Set(f.categories);
-                        if (active) selected.delete(cat);
-                        else selected.add(cat);
-                        return { ...f, categories: [...selected] };
+                    //     const selected = new Set(f.categories);
+                    //     if (active) selected.delete(cat);
+                    //     else selected.add(cat);
+                    //     return { ...f, categories: [...selected] };
+                    //   })
+                    // } 
+                      const set = new Set(f.categories);
+                        if (isActive && !allSelected) {
+                          set.delete(cat);
+                        } else {
+                          set.add(cat);
+                        }
+                        return { ...f, categories: [...set] };
                       })
                     }
                     style={{
@@ -2043,11 +2010,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                       borderRadius: 12,
                       cursor: "pointer",
                       fontSize: 12,
-                      background: active
+                      background: isActive
                         ? "rgba(60, 120, 200, 0.8)"       // selected chip colour
                         : "rgba(220, 220, 220, 0.9)",     // unselected chip
-                      color: active ? "white" : "#333",
-                      border: active ? "1px solid #1e3a8a" : "1px solid #ccc",
+                      // color: active ? "white" : "#333",
+                      // border: active ? "1px solid #1e3a8a" : "1px solid #ccc",
+                      // userSelect: "none",
+                      color: isActive ? "white" : "#333",
+                      border: isActive ? "1px solid #1e3a8a" : "1px solid #ccc",
                       userSelect: "none",
                     }}
                   >
@@ -2085,7 +2055,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           Redactions {sections.highlights ? "▾" : "▸"}
         </div>
 
-        {sections.highlights && (
+        {/* {sections.highlights && (
           <div className="sidebar-section-content" style={{ maxHeight: "35vh" }}>
             {!currentPdfId ? (
               <div style={{ opacity: 0.6 }}>Open a document to see redactions.</div>
@@ -2105,7 +2075,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <div key={category} style={{ marginBottom: 12 }}>
                     {/* CATEGORY HEADER */}
-                    <div
+                    {/* <div
                       onClick={() =>
                         setExpandedCategories((prev) => ({
                           ...prev,
@@ -2126,10 +2096,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     >
                       <span>{category}</span>
                       <span>{expandedCategories[category] ? "▾" : "▸"}</span>
-                    </div>
+                    </div> */}
 
                     {/* TEXT GROUPS + ITEMS */}
-                    {expandedCategories[category] && (
+                    {/* {expandedCategories[category] && (
                       <div style={{ paddingLeft: 6 }}>
                         <GroupedRedactions
                           all={activeInCategory}                     // category's items (filtered by viewer)
@@ -2148,6 +2118,74 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
         )}
+      </div> */}
+      {sections.highlights && (
+        <div className="sidebar-section-content" style={{ maxHeight: "35vh" }}>
+          {!currentPdfId ? (
+            <div style={{ opacity: 0.6 }}>Open a document to see redactions.</div>
+          ) : (
+            categoryGroups.map(({ category }) => {
+              // ALL items for this category (unchecked + checked)
+              const itemsInCategoryAll =
+                (currentPdfId ? allHighlights[currentPdfId] ?? [] : []).filter(
+                  (h: CommentedHighlight) => h.category === category
+                );
+
+              // ACTIVE (checked) items in this category (already filtered at App level)
+              const activeInCategory = currentHighlights.filter(
+                (h) => h.category === category
+              );
+
+              // Header colour: take the colour from a real item in the category
+              const sample = itemsInCategoryAll[0] ?? activeInCategory[0] ?? null;
+              const color = sample ? getHighlightColor(sample) : "#7e57c2"; // fallback
+
+              return (
+                <div key={category} style={{ marginBottom: 12 }}>
+                  {/* CATEGORY HEADER */}
+                  <div
+                    onClick={() =>
+                      setExpandedCategories((prev) => ({
+                        ...prev,
+                        [category]: !prev[category],
+                      }))
+                    }
+                    style={{
+                      background: color,
+                      color: "white",
+                      padding: "6px 10px",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      userSelect: "none",
+                    }}
+                  >
+                    <span>{category}</span>
+                    <span>{expandedCategories[category] ? "▾" : "▸"}</span>
+                  </div>
+
+                  {/* TEXT GROUPS + ITEMS */}
+                  {expandedCategories[category] && (
+                    <div style={{ paddingLeft: 6 }}>
+                      <GroupedRedactions
+                        all={itemsInCategoryAll}            // ⬅ all items (master)
+                        active={activeInCategory}           // ⬅ only checked items
+                        onToggleGroup={onToggleGroup}
+                        toggleSingle={toggleHighlightCheckbox}
+                        onApplyAllGroup={onApplyAllGroup}
+                        onRemoveHighlight={onRemoveHighlight}
+                        onRemoveGroup={onRemoveGroup}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )} 
       </div>
 
       {/* Reset (active only) */}
