@@ -15,6 +15,7 @@ import {
 } from "@fluentui/react";
 // import { DeleteRegular } from "@fluentui/react-icons";
 import { CommentedHighlight } from "./types";
+import { getHighlightColor } from "./helpers/color";
 
 /* =========================
    Props
@@ -407,9 +408,29 @@ const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
                         className="sidebar-row__content"
                         style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}
                       >
-                        <span className="sidebar-row__title" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                        {/* <span className="sidebar-row__title" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
                           Redaction {i + 1} — Page {item.position.boundingRect.pageNumber}
-                        </span>
+                        </span> */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className="sidebar-row__title">
+                            Redaction {i + 1} — Page {item.position.boundingRect.pageNumber}
+                          </span>
+
+                          {item.metadata?.category && (
+                            <span
+                              style={{
+                                padding: "2px 6px",
+                                borderRadius: 10,
+                                fontSize: 10,
+                                background: getHighlightColor(item),
+                                color: "white",
+                                opacity: 0.9
+                              }}
+                            >
+                              {item.metadata.category}
+                            </span>
+                          )}
+                        </div>
 
                         <span style={{ flex: 1 }} />
 
