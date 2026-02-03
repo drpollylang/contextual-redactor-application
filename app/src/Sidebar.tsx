@@ -29,6 +29,13 @@ interface SidebarProps {
   currentHighlights: Array<CommentedHighlight>;
   toggleHighlightCheckbox: (highlight: CommentedHighlight, checked: boolean) => void;
 
+  highlightFilters: {
+    source: string;
+    category: string;
+    text: string;
+  };
+  setHighlightFilters: (f: any) => void;
+
   handlePdfUpload: (file: File) => void;
   removePdf: (id: string) => void;
 
@@ -489,6 +496,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onRemoveGroup,
   onToggleGroup,
 
+  highlightFilters,
+  setHighlightFilters,
+
   highlights,
   resetHighlights,
   resetEverything,
@@ -739,6 +749,87 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
+      {/* === FILTERS === */}
+      <div style={{ padding: ".5rem", borderBottom: "1px solid #eee" }}>
+        <h4 style={{ margin: "4px 0" }}>Filter Redactions</h4>
+
+        {/* Filter by source */}
+        <select
+          value={highlightFilters.source}
+          onChange={(e) =>
+            setHighlightFilters((f: CommentedHighlight) => ({ ...f, source: e.target.value }))
+          }
+          style={{ width: "100%", marginBottom: 8 }}
+        >
+          <option value="all">All Sources</option>
+          <option value="manual">Manual Only</option>
+          <option value="ai">AI Only</option>
+        </select>
+
+        {/* Filter by category */}
+        
+        {/* <select
+          value={highlightFilters.category}
+          onChange={(e) =>
+            setHighlightFilters((f: CommentedHighlight) => ({ ...f, category: e.target.value }))
+          }
+          style={{ width: "100%", marginBottom: 8 }}
+        >
+          <option value="all">All Categories</option> */}
+
+          {/* Auto-generate unique categories from highlights */}
+          {/* {Array.from(
+            new Set(
+              (allHighlights[currentPdfId] ?? [])
+                .map((h) => h.metadata?.category)
+                .filter(Boolean)
+            )
+          ).map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>   */}
+        {/* Filter by category */}
+        <select
+          value={highlightFilters.category}
+          onChange={(e) =>
+            setHighlightFilters((f: typeof highlightFilters) => ({
+              ...f,
+              category: e.target.value
+            }))
+          }
+          style={{ width: "100%", marginBottom: 8 }}
+        >
+          <option value="all">All Categories</option>
+
+          {(
+            // Safely compute categories with correct TS narrowing
+            Array.from(
+              new Set(
+                (currentPdfId ? allHighlights[currentPdfId] ?? [] : [])
+                  .map((h: CommentedHighlight) => h.metadata?.category as string | undefined)
+                  .filter((cat): cat is string => Boolean(cat))
+              )
+            )
+          ).map((cat: string) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+
+        {/* Free text filter */}
+        <input
+          type="text"
+          placeholder="Filter by text / label / comment"
+          value={highlightFilters.text}
+          onChange={(e) =>
+            setHighlightFilters((f: typeof highlightFilters) => ({ ...f, text: e.target.value }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
 
       {/* Redactions */}
       <div style={{ borderBottom: "1px solid #eee" }}>
@@ -752,8 +843,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div style={{ opacity: 0.6 }}>Open a document to see redactions.</div>
             ) : (
               <GroupedRedactions
-                all={allHighlights[currentPdfId] ?? []}
-                active={currentHighlights}
+                // all={allHighlights[currentPdfId] ?? []}
+                // active={currentHighlights}
+                all={currentHighlights}        // filtered
+                active={currentHighlights}     // filtered active list
                 onToggleGroup={onToggleGroup}
                 toggleSingle={toggleHighlightCheckbox}
                 onApplyAllGroup={onApplyAllGroup}

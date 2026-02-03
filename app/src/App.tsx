@@ -1,7 +1,7 @@
 
 // npm run dev
 // v4->v5 Apply To All buttons, persistent storage
-import React, { MouseEvent, useEffect, useRef, useState } from "react";
+import React, { MouseEvent, useEffect, useRef, useState, useMemo } from "react";
 
 import CommentForm from "./CommentForm";
 import ContextMenu, { ContextMenuProps } from "./ContextMenu";
@@ -127,10 +127,51 @@ const App: React.FC = () => {
     Record<string, CommentedHighlight[]>
   >({});
 
-  const currentHighlights =
+  // const currentHighlights =
+  //   currentPdfId && docHighlights[currentPdfId]
+  //     ? docHighlights[currentPdfId]
+  //     : [];
+
+  // === Filter state ===
+  const [highlightFilters, setHighlightFilters] = useState({
+    source: "all",      // "all" | "manual" | "ai"
+    category: "all",    // "all" | category string
+    text: ""
+  });
+
+  const unfilteredHighlights =
     currentPdfId && docHighlights[currentPdfId]
       ? docHighlights[currentPdfId]
       : [];
+
+  const filteredHighlights = useMemo(() => {
+    let list = unfilteredHighlights;
+
+    // Filter by source
+    if (highlightFilters.source !== "all") {
+      list = list.filter(h => h.source === highlightFilters.source);
+    }
+
+    // Filter by category
+    if (highlightFilters.category !== "all") {
+      list = list.filter(h => h.metadata?.category === highlightFilters.category);
+    }
+
+    // Free text filter
+    if (highlightFilters.text.trim()) {
+      const q = highlightFilters.text.toLowerCase();
+      list = list.filter(h =>
+        (h.label?.toLowerCase()?.includes(q)) ||
+        (h.comment?.toLowerCase()?.includes(q)) ||
+        (h.metadata?.category?.toLowerCase()?.includes(q)) ||
+        (h.content?.text?.toLowerCase()?.includes(q))
+      );
+    }
+
+    return list;
+  }, [unfilteredHighlights, highlightFilters]);
+
+  const currentHighlights = filteredHighlights;
 
   const currentPdf =
     currentPdfId && uploadedPdfs.length > 0
@@ -840,7 +881,7 @@ const App: React.FC = () => {
     
     // Build manual label: "<userId> added <local date/time>: <optional comment>"
       const timestamp = new Date().toLocaleString();
-      const label = `${userId} added ${timestamp}${comment ? `: ${comment}` : ""}`;
+      const label = `${userId} added ${timestamp}`;
 
       const h: CommentedHighlight = {
         id: getNextId(),
@@ -2297,6 +2338,8 @@ const App: React.FC = () => {
         setCurrentPdfId={setCurrentPdfId}
         allHighlights={allHighlights}
         currentHighlights={currentHighlights}
+        setHighlightFilters={setHighlightFilters}
+        highlightFilters={highlightFilters}
         toggleHighlightCheckbox={toggleHighlightCheckbox}
         handlePdfUpload={handlePdfUpload}
         removePdf={removePdf}
