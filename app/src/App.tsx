@@ -9,6 +9,7 @@ import ExpandableTip from "./ExpandableTip";
 import HighlightContainer from "./HighlightContainer";
 import Toolbar from "./Toolbar";
 import Sidebar from "./Sidebar";
+import SettingsPage, { HighlightFilters, STATIC_AI_RULES } from "./SettingsPage";
 import HistoryTimeline from "./HistoryTimeline";
 import { applyAiRedactionsPlugin } from "./plugins/applyAiRedactionsPlugin";
 
@@ -97,6 +98,18 @@ const App: React.FC = () => {
 
   const [userId, setUserId] = useState<string>("anonymous");
 
+  // Settings page
+  const [showSettings, setShowSettings] = useState(false);
+  const [aiRules, setAiRules] = useState<string[]>(
+    STATIC_AI_RULES.map(r => r.description) // ⬅ ALL selected by default
+  );
+
+  // const [highlightFilters, setHighlightFilters] = useState<HighlightFilters>({
+  //   source: "all",
+  //   categories: [],
+  //   text: ""
+  // });
+
   // Undo/redo stacks
   const [undoStack, setUndoStack] = useState<
     Array<{ doc: Record<string, CommentedHighlight[]>; all: Record<string, CommentedHighlight[]> }>
@@ -133,7 +146,7 @@ const App: React.FC = () => {
   //     : [];
 
   // === Filter state ===
-  const [highlightFilters, setHighlightFilters] = useState({
+  const [highlightFilters, setHighlightFilters] = useState<HighlightFilters>({
     source: "all",      // "all" | "manual" | "ai"
     // category: "all",    // "all" | category string
     categories: [] as string[],
@@ -696,10 +709,10 @@ const App: React.FC = () => {
     })();
   }, []);
 
-
   /* =========================
      Persist preferences
      ========================= */
+  // TODO: restore from Blob/Cosmos DB
   useEffect(() => {
     if (!isRestored) return;
     db.preferences.put({
@@ -710,6 +723,8 @@ const App: React.FC = () => {
       highlightPenEnabled: highlightPen,
       uiMode: "dark",
       userIdentity: null,
+      rules: aiRules,                       
+      highlightFilters: highlightFilters              
     });
   }, [currentPdfId, zoom, highlightPen, isRestored]);
 
@@ -752,6 +767,8 @@ const App: React.FC = () => {
         highlightPenEnabled: highlightPen,
         uiMode: "dark",
         userIdentity: userId ?? null,
+        rules: aiRules ?? null,
+        highlightFilters: highlightFilters ?? null
       });
     }
 
@@ -764,6 +781,19 @@ const App: React.FC = () => {
         console.error("[BLOB] failed to upload original:", e);
       }
   };
+
+  // Compute available categories for the current doc
+    const availableCategories: string[] = useMemo(() => {
+      if (!currentPdfId) return [];
+      const items = allHighlights[currentPdfId] ?? [];
+      return Array.from(
+        new Set(
+          items
+            .map(h => h.category as string | undefined)
+            .filter((x): x is string => Boolean(x))
+        )
+      ).sort((a, b) => a.localeCompare(b));
+    }, [currentPdfId, allHighlights]);
 
   /* =========================
      Debounced highlight writer
@@ -2214,7 +2244,11 @@ const App: React.FC = () => {
       const res = await fetch("/api/start-redaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blobName: blobPath })
+        // body: JSON.stringify({ blobName: blobPath })
+        body: JSON.stringify({
+          blobName: blobPath,
+          rules: aiRules
+        })
       });
       if (!res.ok) {
         throw new Error(await res.text());
@@ -2395,6 +2429,7 @@ const App: React.FC = () => {
           canUndo={canUndo}
           canRedo={canRedo}
           onShowInfo={() => setShowInfoModal(true)}
+          onShowSettings={() => setShowSettings(true)}
           searchQuery={searchQuery}
           onChangeSearch={setSearchQuery}
           onSearchNext={searchNext}
@@ -2668,6 +2703,52 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* SETTINGS MODAL */}
+      {showSettings && (
+        <div
+          onClick={() => setShowSettings(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 5000
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "white",
+              padding: "24px 28px",
+              borderRadius: 8,
+              width: 640,
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Settings</h2>
+
+            <SettingsPage
+              rules={aiRules}
+              setRules={setAiRules}
+              highlightFilters={highlightFilters}
+              setHighlightFilters={setHighlightFilters}
+              availableCategories={availableCategories}
+            />
+
+            <div style={{ textAlign: "right", marginTop: 16 }}>
+              <DefaultButton text="Close" onClick={() => setShowSettings(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Show History Modal) */}
       {showHistory && (
         <HistoryTimeline
           entries={history}

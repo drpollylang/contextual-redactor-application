@@ -17,56 +17,7 @@
 // import { CommentedHighlight } from "./types";
 // import { getHighlightColor } from "./helpers/color";
 
-// /* =========================
-//    Props
-// ========================= */
 
-interface SidebarProps {
-  uploadedPdfs: Array<{ id: string; name: string; url: string }>;
-  currentPdfId: string | null;
-  setCurrentPdfId: (id: string) => void;
-
-  allHighlights: Record<string, Array<CommentedHighlight>>;
-  currentHighlights: Array<CommentedHighlight>;
-  toggleHighlightCheckbox: (highlight: CommentedHighlight, checked: boolean) => void;
-
-  highlightFilters: {
-    source: string;
-    categories: string[];
-    text: string;
-  };
-  setHighlightFilters: (f: any) => void;
-
-  handlePdfUpload: (file: File) => void;
-  removePdf: (id: string) => void;
-
-  onFindDuplicates: () => Promise<Array<Array<{ id: string; name: string }>>>;
-
-  onApplyAllGroup: (items: CommentedHighlight[]) => void;
-  onRemoveHighlight: (highlight: CommentedHighlight) => void;
-
-  // Remove all items from a specific group
-  onRemoveGroup: (items: CommentedHighlight[]) => void;
-
-  // Bulk toggle provided by App (single atomic update)
-  onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
-
-  // Resets active-only
-  resetHighlights: () => void;
-
-  // NEW: full reset (delete all + clear history/undo/redo)
-  resetEverything: () => void;
-
-  // Legacy/misc (not used for rendering lists anymore)
-  highlights: Array<CommentedHighlight>;
-  toggleDocument: () => void;
-
-  // AI-generated redaction suggestions button
-  onStartRedaction: () => Promise<void>;
-  isRedacting: boolean;
-  redactionStatus?: string | null;
-
-}
 
 // /* =========================
 //    Helpers
@@ -1239,6 +1190,57 @@ import {
 
 import { CommentedHighlight } from "./types";
 import { getHighlightColor } from "./helpers/color";
+
+// /* =========================
+//    Props
+// ========================= */
+
+interface SidebarProps {
+  uploadedPdfs: Array<{ id: string; name: string; url: string }>;
+  currentPdfId: string | null;
+  setCurrentPdfId: (id: string) => void;
+
+  allHighlights: Record<string, Array<CommentedHighlight>>;
+  currentHighlights: Array<CommentedHighlight>;
+  toggleHighlightCheckbox: (highlight: CommentedHighlight, checked: boolean) => void;
+
+  highlightFilters: {
+    source: string;
+    categories: string[];
+    text: string;
+  };
+  setHighlightFilters: (f: any) => void;
+
+  handlePdfUpload: (file: File) => void;
+  removePdf: (id: string) => void;
+
+  onFindDuplicates: () => Promise<Array<Array<{ id: string; name: string }>>>;
+
+  onApplyAllGroup: (items: CommentedHighlight[]) => void;
+  onRemoveHighlight: (highlight: CommentedHighlight) => void;
+
+  // Remove all items from a specific group
+  onRemoveGroup: (items: CommentedHighlight[]) => void;
+
+  // Bulk toggle provided by App (single atomic update)
+  onToggleGroup: (items: CommentedHighlight[], checked: boolean) => void;
+
+  // Resets active-only
+  resetHighlights: () => void;
+
+  // NEW: full reset (delete all + clear history/undo/redo)
+  resetEverything: () => void;
+
+  // Legacy/misc (not used for rendering lists anymore)
+  highlights: Array<CommentedHighlight>;
+  toggleDocument: () => void;
+
+  // AI-generated redaction suggestions button
+  onStartRedaction: () => Promise<void>;
+  isRedacting: boolean;
+  redactionStatus?: string | null;
+
+}
 
 /* =========================
    Helpers

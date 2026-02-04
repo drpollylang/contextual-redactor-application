@@ -12,8 +12,9 @@ interface ToolbarProps {
   redo: () => void;
   canUndo: boolean;      
   canRedo: boolean;
-  // info button
+  // info and settings button
   onShowInfo: () => void;
+  onShowSettings: () => void;
   // search bar
   searchQuery: string;
   onChangeSearch: (q: string) => void;
@@ -75,7 +76,7 @@ const iconBtnStyles: IButtonStyles = {
 
 const Toolbar: React.FC<ToolbarProps> = 
 ({ setPdfScaleValue, toggleHighlightPen, 
-  undo, redo, canUndo, canRedo, 
+  undo, redo, canUndo, canRedo, onShowSettings,
   searchQuery, onChangeSearch, onSearchNext, onSearchPrev, onClearSearch, searchPos, searchTotal,
   onShowInfo, onToggleHistory }: ToolbarProps) => {
   const [zoom, setZoom] = useState<number | null>(null);
@@ -330,6 +331,19 @@ const Toolbar: React.FC<ToolbarProps> =
           ariaLabel="Redo"
           onClick={redo}
           disabled={!canRedo}
+        />
+      </TooltipHost>
+  
+    {/* Settings button (only entry point) */}
+      <TooltipHost content="Settings">
+        <IconButton
+          iconProps={{ iconName: "Settings" }}
+          onClick={onShowSettings}
+          styles={{
+            root: { height: 32, width: 32 },
+            rootHovered: { background: "rgba(0,0,0,0.05)" }
+          }}
+          ariaLabel="Open settings"
         />
       </TooltipHost>
 

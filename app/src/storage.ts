@@ -41,6 +41,8 @@ export interface AppPreferences {
 
   uiMode: "dark" | "light";
   userIdentity: string | null;
+  rules: any;
+  highlightFilters: any;
 }
 
 //
