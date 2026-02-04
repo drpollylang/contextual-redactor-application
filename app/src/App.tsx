@@ -203,9 +203,21 @@ const App: React.FC = () => {
 
         // AI highlight without a confidence value → keep it
         if (h.confidence == null) return true;
+        const confidence_numeric = Number(h.confidence);
+
+        console.log({
+          threshold:t,
+          id: h.id,
+          source: h.source,
+          confidenceRaw: h.confidence,
+          confidenceNumeric: Number(h.confidence),
+          keep: h.source !== "ai" 
+                || h.confidence == null 
+                || Number(h.confidence) >= highlightFilters.confidence
+        });
 
         // AI highlight with numeric confidence → apply threshold
-        return h.confidence >= t;
+        return confidence_numeric >= t;
       });
     }
 
