@@ -1674,7 +1674,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const [sections, setSections] = useState({
     documents: true,
-    filters: true,
+    // filters: true,
     highlights: true,
   });
 
@@ -1946,13 +1946,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* === FILTERS === */}
-      <div onClick={() => toggleSection("filters")} className="sidebar-section-header">
+      {/* <div onClick={() => toggleSection("filters")} className="sidebar-section-header">
         Filter Redactions {sections.filters ? "▾" : "▸"}
-      </div>
+      </div> */}
 
-      {sections.filters && (
+      {/* {sections.filters && (
         <div className="sidebar-section-content" style={{ maxHeight: "25vh" }}>
-          {/* SOURCE FILTER */}
           <select
             value={highlightFilters.source}
             onChange={(e) =>
@@ -1966,10 +1965,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             <option value="all">All Sources</option>
             <option value="manual">Manual Only</option>
             <option value="ai">AI Only</option>
-          </select>
+          </select> */}
 
           {/* === MULTI-SELECT CATEGORY FILTER === */}
-          <div style={{ marginBottom: 12 }}>
+          {/* <div style={{ marginBottom: 12 }}>
             <h4 style={{ margin: "4px 0" }}>Categories</h4>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -2028,10 +2027,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 );
               })}
             </div>
-          </div>
+          </div> */}
 
           {/* TEXT SEARCH FILTER */}
-          <input
+          {/* <input
             type="text"
             placeholder="Filter by text / label / comment"
             value={highlightFilters.text}
@@ -2044,7 +2043,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             style={{ width: "100%" }}
           />
         </div>
-      )}
+      )} */}
 
       {/* =========================
           Redactions Section

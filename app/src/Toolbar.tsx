@@ -12,9 +12,10 @@ interface ToolbarProps {
   redo: () => void;
   canUndo: boolean;      
   canRedo: boolean;
-  // info and settings button
+  // info, filters and settings buttons
   onShowInfo: () => void;
   onShowSettings: () => void;
+  onShowFilters: () => void;
   // search bar
   searchQuery: string;
   onChangeSearch: (q: string) => void;
@@ -76,7 +77,7 @@ const iconBtnStyles: IButtonStyles = {
 
 const Toolbar: React.FC<ToolbarProps> = 
 ({ setPdfScaleValue, toggleHighlightPen, 
-  undo, redo, canUndo, canRedo, onShowSettings,
+  undo, redo, canUndo, canRedo, onShowSettings, onShowFilters,
   searchQuery, onChangeSearch, onSearchNext, onSearchPrev, onClearSearch, searchPos, searchTotal,
   onShowInfo, onToggleHistory }: ToolbarProps) => {
   const [zoom, setZoom] = useState<number | null>(null);
@@ -333,8 +334,20 @@ const Toolbar: React.FC<ToolbarProps> =
           disabled={!canRedo}
         />
       </TooltipHost>
+
+      
+    {/* Filters */}
+      <TooltipHost content="Filters (Ctrl+Shift+F)">
+        <IconButton
+          iconProps={{ iconName: "Filter" }} // Fluent UI 'Filter' icon
+          ariaLabel="Open filters"
+          onClick={onShowFilters}
+          styles={{ root: { height: 32, width: 32 }, rootHovered: { background: "rgba(0,0,0,0.05)" } }}
+        />
+      </TooltipHost>
+
   
-    {/* Settings button (only entry point) */}
+    {/* Settings button */}
       <TooltipHost content="Settings">
         <IconButton
           iconProps={{ iconName: "Settings" }}

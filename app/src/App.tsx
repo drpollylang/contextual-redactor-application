@@ -9,7 +9,9 @@ import ExpandableTip from "./ExpandableTip";
 import HighlightContainer from "./HighlightContainer";
 import Toolbar from "./Toolbar";
 import Sidebar from "./Sidebar";
-import SettingsPage, { HighlightFilters, STATIC_AI_RULES } from "./SettingsPage";
+import FiltersPage, { HighlightFilters as FiltersHighlightFilters } from "./FiltersPage";
+// import SettingsPage, { HighlightFilters, STATIC_AI_RULES } from "./SettingsPage";
+import SettingsPage, { STATIC_AI_RULES } from "./SettingsPage";
 import HistoryTimeline from "./HistoryTimeline";
 import { applyAiRedactionsPlugin } from "./plugins/applyAiRedactionsPlugin";
 
@@ -104,6 +106,9 @@ const App: React.FC = () => {
     STATIC_AI_RULES.map(r => r.description) // ⬅ ALL selected by default
   );
 
+  // Filters Page
+  const [showFilters, setShowFilters] = useState(false);
+
   // const [highlightFilters, setHighlightFilters] = useState<HighlightFilters>({
   //   source: "all",
   //   categories: [],
@@ -146,7 +151,7 @@ const App: React.FC = () => {
   //     : [];
 
   // === Filter state ===
-  const [highlightFilters, setHighlightFilters] = useState<HighlightFilters>({
+  const [highlightFilters, setHighlightFilters] = useState<FiltersHighlightFilters>({
     source: "all",      // "all" | "manual" | "ai"
     // category: "all",    // "all" | category string
     categories: [] as string[],
@@ -354,6 +359,33 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      
+      // Ignore while typing in inputs/contentEditable
+      const isEditable = (el: EventTarget | null) => {
+        if (!(el instanceof HTMLElement)) return false;
+        const tag = el.tagName.toLowerCase();
+        const editable = el.getAttribute("contenteditable");
+        return tag === "input" || tag === "textarea" || editable === "" || editable === "true";
+      };
+      if (isEditable(e.target)) return;
+
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ctrl/Cmd + , => Settings
+      if (mod && !e.shiftKey && e.key === ",") {
+        e.preventDefault();
+        setShowSettings(true);
+        return;
+      }
+
+      // Ctrl/Cmd + Shift + F => Filters (avoid clashing with Ctrl/Cmd+F Find)
+      if (mod && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setShowFilters(true);
+        return;
+      }
+
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "h") {
         e.preventDefault();
         setShowHistory((v) => !v);
@@ -2430,6 +2462,7 @@ const App: React.FC = () => {
           canRedo={canRedo}
           onShowInfo={() => setShowInfoModal(true)}
           onShowSettings={() => setShowSettings(true)}
+          onShowFilters={() => setShowFilters(true)} 
           searchQuery={searchQuery}
           onChangeSearch={setSearchQuery}
           onSearchNext={searchNext}
@@ -2692,6 +2725,12 @@ const App: React.FC = () => {
               <li>
                 <strong>Ctrl + Shft + h</strong> — View history timeline
               </li>
+              <li>
+                <strong>Ctrl + Shft + f</strong> — Open Filters
+              </li>
+              <li>
+                <strong>Ctrl + ,</strong> — Open Settings
+              </li>
             </ul>
             <div style={{ textAlign: "right", marginTop: 16 }}>
               <DefaultButton
@@ -2743,6 +2782,49 @@ const App: React.FC = () => {
 
             <div style={{ textAlign: "right", marginTop: 16 }}>
               <DefaultButton text="Close" onClick={() => setShowSettings(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FILTERS MODAL */}
+      {showFilters && (
+        <div
+          onClick={() => setShowFilters(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 5000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "white",
+              padding: "24px 28px",
+              borderRadius: 8,
+              width: 680,
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Filters</h2>
+
+            <FiltersPage
+              highlightFilters={highlightFilters}
+              setHighlightFilters={setHighlightFilters}
+              availableCategories={availableCategories}
+            />
+
+            <div style={{ textAlign: "right", marginTop: 16 }}>
+              <DefaultButton text="Close" onClick={() => setShowFilters(false)} />
             </div>
           </div>
         </div>
