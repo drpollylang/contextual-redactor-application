@@ -5,6 +5,7 @@ export type HighlightFilters = {
   source: "all" | "manual" | "ai";
   categories: string[];
   text: string;
+  confidence: number;
 };
 
 export interface FiltersPageProps {
@@ -91,6 +92,31 @@ const FiltersPage: React.FC<FiltersPageProps> = ({
         <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
           Tip: If none are explicitly selected, all categories are shown.
         </div>
+      </div>
+
+      {/* CONFIDENCE SLIDER */}
+      <div>
+      <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>
+          Minimum Confidence ({Math.round(highlightFilters.confidence * 100)}%)
+      </label>
+
+      <input
+          type="range"
+          min={0}
+          max={100}
+          value={highlightFilters.confidence * 100}
+          onChange={(e) =>
+          setHighlightFilters((f) => ({
+              ...f,
+              confidence: Number(e.target.value) / 100   // store 0–1
+          }))
+          }
+          style={{ width: "100%" }}
+      />
+
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+          Only show AI redactions with confidence ≥ {Math.round(highlightFilters.confidence * 100)}%
+      </div>
       </div>
 
       {/* Text search */}

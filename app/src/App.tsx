@@ -155,7 +155,8 @@ const App: React.FC = () => {
     source: "all",      // "all" | "manual" | "ai"
     // category: "all",    // "all" | category string
     categories: [] as string[],
-    text: ""
+    text: "",
+    confidence: 0.0,
   });
 
   const unfilteredHighlights =
@@ -190,6 +191,22 @@ const App: React.FC = () => {
         (h.metadata?.category?.toLowerCase()?.includes(q)) ||
         (h.content?.text?.toLowerCase()?.includes(q))
       );
+    }
+
+    // Confidence filter
+    if (highlightFilters.confidence > 0) {
+      const t = highlightFilters.confidence;
+
+      list = list.filter(h => {
+        // Always show manual highlights
+        if (h.source !== "ai") return true;
+
+        // AI highlight without a confidence value → keep it
+        if (h.confidence == null) return true;
+
+        // AI highlight with numeric confidence → apply threshold
+        return h.confidence >= t;
+      });
     }
 
     return list;
@@ -2775,8 +2792,8 @@ const App: React.FC = () => {
             <SettingsPage
               rules={aiRules}
               setRules={setAiRules}
-              highlightFilters={highlightFilters}
-              setHighlightFilters={setHighlightFilters}
+              // highlightFilters={highlightFilters}
+              // setHighlightFilters={setHighlightFilters}
               availableCategories={availableCategories}
             />
 

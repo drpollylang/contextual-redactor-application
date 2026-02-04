@@ -14,8 +14,8 @@ export interface SettingsPageProps {
   setRules: React.Dispatch<React.SetStateAction<string[]>>;
 
   /** Viewer filters moved from Sidebar */
-  highlightFilters: HighlightFilters;
-  setHighlightFilters: React.Dispatch<React.SetStateAction<HighlightFilters>>;
+  // highlightFilters: HighlightFilters;
+  // setHighlightFilters: React.Dispatch<React.SetStateAction<HighlightFilters>>;
 
   /** Categories seen in the current document (for filter chips) */
   availableCategories: string[];
@@ -87,8 +87,8 @@ export const STATIC_AI_RULES: Array<{ title: string; description: string }> = [
 const SettingsPage: React.FC<SettingsPageProps> = ({
   rules,
   setRules,
-  highlightFilters,
-  setHighlightFilters,
+  // highlightFilters,
+  // setHighlightFilters,
   availableCategories
 }) => {
   /** Toggle by DESCRIPTION — we store only description strings in rules */
@@ -101,20 +101,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     });
   };
 
-  const allSelected = (highlightFilters.categories?.length ?? 0) === 0;
+  // const allSelected = (highlightFilters.categories?.length ?? 0) === 0;
 
-  const toggleCategoryChip = (cat: string) => {
-    setHighlightFilters(f => {
-      // If "all selected" implicitly (empty array), clicking a chip starts explicit selection.
-      if (allSelected) {
-        return { ...f, categories: [cat] };
-      }
-      const next = new Set(f.categories);
-      if (next.has(cat)) next.delete(cat);
-      else next.add(cat);
-      return { ...f, categories: [...next] };
-    });
-  };
+//   const toggleCategoryChip = (cat: string) => {
+//     setHighlightFilters(f => {
+//       // If "all selected" implicitly (empty array), clicking a chip starts explicit selection.
+//       if (allSelected) {
+//         return { ...f, categories: [cat] };
+//       }
+//       const next = new Set(f.categories);
+//       if (next.has(cat)) next.delete(cat);
+//       else next.add(cat);
+//       return { ...f, categories: [...next] };
+//     });
+//   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -124,7 +124,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       <section>
         <h3 style={{ margin: "0 0 8px" }}>AI Redaction Rules</h3>
         <p style={{ margin: "0 0 8px", opacity: 0.8, fontSize: 13 }}>
-          Select rules to apply when generating AI redactions. We will only send the description text of the selected rules to the backend.
+          Select sensitive content rules to apply when generating AI redactions. Only the selected rules will be applied by the AI when suggesting redactions.
         </p>
 
         <div style={{ display: "grid", gap: 10 }}>
@@ -164,11 +164,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
       {/* ─────────────────────────────
           Filters (moved from sidebar)
          ───────────────────────────── */}
-      <section>
+      {/* <section>
         <h3 style={{ margin: "0 0 8px" }}>Filter Redactions</h3>
-
+        */}
         {/* Source filter */}
-        <div style={{ marginBottom: 12 }}>
+        {/* <div style={{ marginBottom: 12 }}>
           <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>
             Source
           </label>
@@ -186,9 +186,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             <option value="manual">Manual Only</option>
             <option value="ai">AI Only</option>
           </select>
-        </div>
+        </div> */}
 
         {/* Category multi-select chips */}
+        {/*}
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 13, marginBottom: 6 }}>Categories</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -222,9 +223,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
             Tip: If none are explicitly selected, all categories are shown.
           </div>
-        </div>
+        </div> */}
 
         {/* Text search */}
+        {/*
         <div>
           <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>
             Text search
@@ -239,7 +241,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             style={{ width: "100%" }}
           />
         </div>
-      </section>
+      </section> */}
     </div>
   );
 };
