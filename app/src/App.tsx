@@ -195,7 +195,7 @@ const App: React.FC = () => {
 
     // Confidence filter
     if (highlightFilters.confidence > 0) {
-      const t = highlightFilters.confidence;
+      const t = Number(highlightFilters.confidence);
 
       list = list.filter(h => {
         // Always show manual highlights
