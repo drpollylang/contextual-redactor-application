@@ -105,12 +105,13 @@ const FiltersPage: React.FC<FiltersPageProps> = ({
           min={0}
           max={100}
           value={highlightFilters.confidence * 100}
-          onChange={(e) =>
+          onChange={(e) => {
+          console.log("Slider changed → raw:", e.target.value);
           setHighlightFilters((f) => ({
               ...f,
               confidence: Number(e.target.value) / 100   // store 0–1
           }))
-          }
+          }}
           style={{ width: "100%" }}
       />
 
