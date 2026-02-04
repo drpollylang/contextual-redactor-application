@@ -2637,7 +2637,7 @@ const App: React.FC = () => {
                 <strong>↑ / ↓</strong> — Move between redaction groups
               </li>
               <li>
-                <strong>Space / Enter</strong> — Toggle selected group
+                <strong>Enter</strong> — Toggle selected group
               </li>
               <li>
                 <strong>Ctrl + O</strong> — Expand/collapse selected group

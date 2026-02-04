@@ -399,7 +399,7 @@ export async function applyAiRedactionsPlugin({
       // };
       // Extract reason (from "Identified as sensitive PII (Category).")
       let reason = "AI";
-      let top_level_category = "Sensitive Information (Misc)";
+      let top_level_category = "";
       if (metadata?.reasoning) {
         const match = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
         if (match) reason = match[1]; // e.g. PII
@@ -411,13 +411,18 @@ export async function applyAiRedactionsPlugin({
       // TODO: create more discrete categories for contextual prompt instructions 
       // e.g. Sensitive Information (Medical), Sensitive Information (Police), SI (Personal Relationships), 
       // SI (Employment), SI (Financial), SI (Personal e.g. sexual orientation/gender) 
-
+      let full_category = "";
       const category = metadata?.category ?? "Unknown";
+      if (top_level_category != "") {
+        full_category = `${top_level_category} (${category})`;
+      } else {
+        full_category = category;
+      }
 
       const h: CommentedHighlight = {
         id: ai.id ?? String(Math.random()).slice(2),
         content: { text },
-        comment: "",
+        comment: metadata?.reasoning ?? "",
         position: {
           boundingRect: scaled,
           rects: [scaled]
@@ -425,7 +430,8 @@ export async function applyAiRedactionsPlugin({
         metadata,
         source: "ai",
         label: `AI generated: ${reason} – ${category}`,
-        category: `${top_level_category} (${category})`
+        category: full_category,
+        confidence: metadata.confidence
       };
 
       newHighlights.push(h);

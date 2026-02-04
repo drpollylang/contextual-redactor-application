@@ -9,4 +9,5 @@ export interface CommentedHighlight extends Highlight {
   label: string;
   source: "manual" | "ai";
   category: string;
+  confidence?: any
 }

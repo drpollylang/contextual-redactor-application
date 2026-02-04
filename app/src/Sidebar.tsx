@@ -1367,7 +1367,7 @@ export const GroupedRedactions: React.FC<GroupedRedactionsProps> = ({
         setFocusedIndex((i) => Math.max(i - 1, 0));
       }
 
-      if (key === " " || key === "Enter") {
+      if (key === "Enter") {
         e.preventDefault();
         const shouldCheck = group.items.some((h) => !activeSet.has(h.id));
         onToggleGroup(group.items, shouldCheck);
