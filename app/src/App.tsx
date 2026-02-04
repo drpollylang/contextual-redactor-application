@@ -194,7 +194,8 @@ const App: React.FC = () => {
     }
 
     // Confidence filter
-    if (highlightFilters.confidence > 0) {
+    console.log("CONF FILTER CHECK:", highlightFilters.confidence, typeof highlightFilters.confidence);
+    if (Number(highlightFilters.confidence) > 0) {
       const t = Number(highlightFilters.confidence);
 
       list = list.filter(h => {
