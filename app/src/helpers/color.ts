@@ -36,7 +36,13 @@ export function getHighlightColor(h: AnyHighlight): string {
       case "PII (DateOfBirth)": return "rgba(30, 144, 255, 0.35)";  // DodgerBlue
       case "PII (Address)":     return "rgba(255, 165, 0, 0.35)";   // Orange
       case "PII (School)":      return "rgba(60, 179, 113, 0.35)";  // SeaGreen
+      case "Sensitive Information (Health)":      return "rgba(26, 158, 241, 1)";  // Yellow
+      case "Sensitive Information (Crime and Policing)":      return "rgba(242, 120, 234, 1)";  // Yellow
+      case "Sensitive Information (Financial and Taxation)":      return "rgba(118, 248, 71, 1)";  // Yellow
+      case "Sensitive Information (Abuse)":      return "rgba(248, 29, 29, 1)";  // Yellow
+      case "Sensitive Information (Personal Info)":      return "rgba(183, 72, 248, 1)";  // Yellow
       case "Sensitive Information (Misc)":      return "rgba(242, 213, 120, 1)";  // Yellow
+      case "Statements From Third Parties":      return "rgba(242, 213, 120, 1)";  // Yellow
       default:            return "rgba(128, 0, 128, 0.35)";   // Purple
     }
   }
