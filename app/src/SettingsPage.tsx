@@ -1,5 +1,6 @@
 // src/SettingsPage.tsx
 import * as React from "react";
+import { DefaultButton } from "@fluentui/react";
 
 /** Keep this in sync with the shape you already use in App */
 export type HighlightFilters = {
@@ -127,6 +128,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           Select sensitive content rules to apply when generating AI redactions. Only the selected rules will be applied by the AI when suggesting redactions.
         </p>
 
+        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+          <DefaultButton
+            text="Select All"
+            onClick={() => setRules(STATIC_AI_RULES.map(r => r.description))}
+          />
+
+          <DefaultButton
+            text="Deselect All"
+            onClick={() => setRules([])}
+          />
+        </div>
         <div style={{ display: "grid", gap: 10 }}>
           {STATIC_AI_RULES.map(({ title, description }, idx) => {
             const checked = rules.includes(description); // store/compare by description only
