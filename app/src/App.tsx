@@ -196,7 +196,7 @@ const App: React.FC = () => {
     // Confidence filter
     console.log("CONF FILTER CHECK:", highlightFilters.confidence, typeof highlightFilters.confidence);
     if (Number(highlightFilters.confidence) > 0) {
-      const t = Number(highlightFilters.confidence);
+      const threshold = Number(highlightFilters.confidence);
 
       list = list.filter(h => {
         // Always show manual highlights
@@ -207,18 +207,21 @@ const App: React.FC = () => {
         const confidence_numeric = Number(h.confidence);
 
         console.log({
-          threshold:t,
+          threshold:threshold,
           id: h.id,
           source: h.source,
           confidenceRaw: h.confidence,
-          confidenceNumeric: Number(h.confidence),
+          confidenceNumeric: confidence_numeric,
           keep: h.source !== "ai" 
                 || h.confidence == null 
                 || Number(h.confidence) >= highlightFilters.confidence
         });
+        console.log("CONF THRESHOLD:", threshold, typeof threshold);
+        console.log("CONF REDACTION:", confidence_numeric, typeof confidence_numeric);
+        console.log("FILTERED?:", confidence_numeric >= threshold);
 
         // AI highlight with numeric confidence → apply threshold
-        return confidence_numeric >= t;
+        return confidence_numeric >= threshold;
       });
     }
 
