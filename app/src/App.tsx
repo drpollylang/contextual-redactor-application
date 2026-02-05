@@ -102,6 +102,7 @@ const App: React.FC = () => {
 
   // Settings page
   const [showSettings, setShowSettings] = useState(false);
+  const [userInstructions, setUserInstructions] = useState<string>("");
   const [aiRules, setAiRules] = useState<string[]>(
     STATIC_AI_RULES.map(r => r.description) // ⬅ ALL selected by default
   );
@@ -2290,7 +2291,7 @@ const App: React.FC = () => {
       setIsRedacting(true);
       setLastRedactionStatus("Submitting");
 
-      console.log("[AI]: Sending HTTP request to backend API: blobPath " + blobPath + ", rules: " + aiRules + ", userInstructions: ''")
+      console.log("[AI]: Sending HTTP request to backend API: blobPath " + blobPath + ", rules: " + aiRules + ", userInstructions: " + userInstructions)
 
       // Kick off orchestration via SWA API proxy
       const res = await fetch("/api/start-redaction", {
@@ -2300,7 +2301,7 @@ const App: React.FC = () => {
         body: JSON.stringify({
           blobName: blobPath,
           rules: aiRules,
-          userInstructions: ""     
+          userInstructions: userInstructions     
         })
       });
       if (!res.ok) {
@@ -2796,6 +2797,8 @@ const App: React.FC = () => {
             <SettingsPage
               rules={aiRules}
               setRules={setAiRules}
+              userInstructions={userInstructions}
+              setUserInstructions={setUserInstructions}
               // highlightFilters={highlightFilters}
               // setHighlightFilters={setHighlightFilters}
               availableCategories={availableCategories}

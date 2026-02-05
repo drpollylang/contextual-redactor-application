@@ -14,6 +14,9 @@ export interface SettingsPageProps {
   rules: string[];
   setRules: React.Dispatch<React.SetStateAction<string[]>>;
 
+  userInstructions: string;
+  setUserInstructions: React.Dispatch<React.SetStateAction<string>>;
+
   /** Viewer filters moved from Sidebar */
   // highlightFilters: HighlightFilters;
   // setHighlightFilters: React.Dispatch<React.SetStateAction<HighlightFilters>>;
@@ -88,6 +91,8 @@ export const STATIC_AI_RULES: Array<{ title: string; description: string }> = [
 const SettingsPage: React.FC<SettingsPageProps> = ({
   rules,
   setRules,
+  userInstructions,
+  setUserInstructions,
   // highlightFilters,
   // setHighlightFilters,
   availableCategories
@@ -171,6 +176,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             );
           })}
         </div>
+      </section>
+
+      {/* ─────────────────────────────
+          Custom User Instructions
+        ───────────────────────────── */}
+      <section style={{ marginTop: 20 }}>
+        <h3 style={{ margin: "0 0 8px" }}>
+          Additional Instructions for AI (Optional)
+        </h3>
+
+        <p style={{ margin: "0 0 8px", opacity: 0.8, fontSize: 13 }}>
+          Add any extra context or guidance for the AI when generating redactions.
+          For example: “Be conservative”, “Ignore dates”, or “Focus on financial references”.
+        </p>
+
+        <textarea
+          value={userInstructions}
+          onChange={(e) => setUserInstructions(e.target.value)}
+          placeholder="Enter additional AI instructions..."
+          style={{
+            width: "100%",
+            height: 120,
+            padding: 10,
+            borderRadius: 6,
+            border: "1px solid #ccc",
+            fontSize: 14,
+            resize: "vertical",
+            boxSizing: "border-box"
+          }}
+        />
       </section>
 
       {/* ─────────────────────────────
