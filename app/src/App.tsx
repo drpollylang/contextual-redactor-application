@@ -167,8 +167,6 @@ const App: React.FC = () => {
   const filteredHighlights = useMemo(() => {
     let list = unfilteredHighlights;
 
-    console.log(list)
-
     // Filter by source
     if (highlightFilters.source !== "all") {
       list = list.filter(h => h.source === highlightFilters.source);
@@ -196,7 +194,6 @@ const App: React.FC = () => {
     }
 
     // Confidence filter
-    console.log("CONF FILTER CHECK:", highlightFilters.confidence, typeof highlightFilters.confidence);
     if (Number(highlightFilters.confidence) > 0) {
       const threshold = Number(highlightFilters.confidence);
 
@@ -208,28 +205,10 @@ const App: React.FC = () => {
         if (h.metadata?.confidence == null || h.metadata?.confidence == undefined ) return true;
         const confidence_numeric = Number(h.metadata?.confidence);
 
-        console.log("CONF THRESHOLD:", threshold, typeof threshold);
-        console.log("CONF REDACTION:", confidence_numeric, typeof confidence_numeric);
-        console.log("FILTERED?:", confidence_numeric >= threshold);
-
         // AI highlight with numeric confidence → apply threshold
         return confidence_numeric >= threshold;
       });
-
-      // let confidence_scores = [];
-      // for (var r in list){
-      //   r.confidence
-      // }
-
-      
-      console.log(
-        "[CONF]", 
-        "threshold =", threshold,
-        "confidence of sample of redactions: ", list[0].confidence, list[3].confidence, list[6].confidence, list[9].confidence, list[12].confidence,
-        "active AI count =", list.filter(h => h.source === "ai").length
-      );
-
-          }
+    }
 
     return list;
   }, [unfilteredHighlights, highlightFilters]);
@@ -2311,6 +2290,8 @@ const App: React.FC = () => {
       setIsRedacting(true);
       setLastRedactionStatus("Submitting");
 
+      console.log("[AI]: Sending HTTP request to backend API: blobPath " + blobPath + ", rules: " + aiRules + ", userInstructions: ''")
+
       // Kick off orchestration via SWA API proxy
       const res = await fetch("/api/start-redaction", {
         method: "POST",
@@ -2318,7 +2299,8 @@ const App: React.FC = () => {
         // body: JSON.stringify({ blobName: blobPath })
         body: JSON.stringify({
           blobName: blobPath,
-          rules: aiRules
+          rules: aiRules,
+          userInstructions: ""     
         })
       });
       if (!res.ok) {
