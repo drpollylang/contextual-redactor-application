@@ -228,6 +228,7 @@ const App: React.FC = () => {
       console.log(
         "[CONF]", 
         "threshold =", threshold,
+        "confidence of sample of redactions: ", list[0].confidence, list[3].confidence, list[6].confidence, list[9].confidence, list[12].confidence,
         "active AI count =", list.filter(h => h.source === "ai").length
       );
 
