@@ -167,6 +167,8 @@ const App: React.FC = () => {
   const filteredHighlights = useMemo(() => {
     let list = unfilteredHighlights;
 
+    console.log(list)
+
     // Filter by source
     if (highlightFilters.source !== "all") {
       list = list.filter(h => h.source === highlightFilters.source);
@@ -223,6 +225,11 @@ const App: React.FC = () => {
         // AI highlight with numeric confidence → apply threshold
         return confidence_numeric >= threshold;
       });
+
+      // let confidence_scores = [];
+      // for (var r in list){
+      //   r.confidence
+      // }
 
       
       console.log(
