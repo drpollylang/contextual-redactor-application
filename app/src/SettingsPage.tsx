@@ -188,7 +188,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
         <p style={{ margin: "0 0 8px", opacity: 0.8, fontSize: 13 }}>
           Add any extra context or guidance for the AI when generating redactions.
-          For example: “Be conservative”, “Ignore dates”, or “Focus on financial references”.
+          For example: Do not redact anything about John Doe”, The company 'Hughes Construction' is fine to keep.”, “Find any quotes that are critical of the parents”, or "Keep Sarah and Oliver, but also redact any mention of bullying".
         </p>
 
         <textarea
