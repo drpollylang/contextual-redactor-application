@@ -204,7 +204,7 @@ const App: React.FC = () => {
 
         // AI highlight without a confidence value → keep it
         if (h.confidence == null) return true;
-        const confidence_numeric = Number(h.confidence);
+        const confidence_numeric = Number(h.confidence)/100;
 
         console.log({
           threshold:threshold,
