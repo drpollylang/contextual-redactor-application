@@ -223,7 +223,15 @@ const App: React.FC = () => {
         // AI highlight with numeric confidence → apply threshold
         return confidence_numeric >= threshold;
       });
-    }
+
+      
+      console.log(
+        "[CONF]", 
+        "threshold =", threshold,
+        "active AI count =", list.filter(h => h.source === "ai").length
+      );
+
+          }
 
     return list;
   }, [unfilteredHighlights, highlightFilters]);
