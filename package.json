@@ -43,7 +43,8 @@
     "pdfjs-dist": "4.8.69",
     "react-icons": "^5.5.0",
     "react-rnd": "^10.4.11",
-    "react-router-dom": "^7.13.0"
+    "react-router-dom": "^7.13.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/lodash.debounce": "^4.0.9",

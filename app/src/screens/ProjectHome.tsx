@@ -131,6 +131,7 @@ import {
   IContextualMenuProps
 } from "@fluentui/react";
 import { useNavigate } from "react-router-dom";
+import {ProjectRecord } from "../helpers/projectHelpers";
 
 interface Project {
   id: string;
@@ -139,14 +140,16 @@ interface Project {
 
 interface HomePageProps {
   userId: string;
-  loadProjects: () => Promise<Project[]>;
-  createProject: () => Promise<void> | void;
-  deleteProject: (projectId: string) => Promise<void> | void;
+  userName: string;
+  loadProjects: (userId: string) => Promise<ProjectRecord[]>;
+  createProject: (userId: string) => Promise<ProjectRecord | null>;
+  deleteProject: (userId: string, projectId: string) => Promise<void>;
 }
 
 // export default function HomePage({ userId, loadProjects, createProject, deleteProject }) {
 export default function ProjectHome({
   userId,
+  userName,
   loadProjects,
   createProject,
   deleteProject
@@ -163,11 +166,15 @@ export default function ProjectHome({
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const result = await loadProjects(); // external function you pass in
+      const result = await loadProjects(userId); // external function you pass in
       setProjects(result);
       setLoading(false);
     })();
-  }, []);
+  }, [userId]);
+
+  
+  const handleCreateProject = () => createProject(userId);
+  const handleDeleteProject = (id: string) => deleteProject(userId, id);
 
   const openDeleteDialog = (proj: Project) => {
     setSelectedProject(proj);
@@ -176,7 +183,8 @@ export default function ProjectHome({
 
   const confirmDelete = async () => {
     if (selectedProject) {
-      await deleteProject(selectedProject.id);
+      // await deleteProject(selectedProject.id);
+      await handleDeleteProject(selectedProject.id);
       setProjects(prev => prev.filter(p => p.id !== selectedProject.id));
     }
     setConfirmDeleteOpen(false);
@@ -229,7 +237,7 @@ export default function ProjectHome({
         <DefaultButton
           text="Create New Project"
           iconProps={{ iconName: "Add" }}
-          onClick={createProject}
+          onClick={handleCreateProject}
           styles={{ root: { height: 40, fontSize: 16, padding: "0 20px" } }}
         />
 
@@ -244,10 +252,10 @@ export default function ProjectHome({
           />
 
           <Persona
-            text={userId}
+            text={userName}
             size={PersonaSize.size32}
             hidePersonaDetails={true}
-            imageInitials={userId?.charAt(0)?.toUpperCase()}
+            imageInitials={userName?.charAt(0)?.toUpperCase()}
           />
         </Stack>
       </Stack>

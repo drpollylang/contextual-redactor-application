@@ -9,6 +9,7 @@ import { loadProjects, createProject, deleteProject } from "./helpers/projectHel
 import { initializeIcons } from "@fluentui/react";
 
 const userId = "anonymous"; // or from auth - TODO wire real identity
+const userName = "A Nonymous"; // or from auth - TODO wire real identity
 initializeIcons();
 
 // Use StrictMode for debugging
@@ -24,7 +25,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
     <Routes>
       {/* <Route path="/" element={<ProjectHome userId={userId} />} /> */}
-      <Route path="/" element={<ProjectHome userId={userId} loadProjects={loadProjects} createProject={createProject} deleteProject={deleteProject} />} />
+      <Route path="/" element={<ProjectHome userId={userId} userName={userName} loadProjects={loadProjects} createProject={createProject} deleteProject={deleteProject} />} />
       <Route path="/project/:projectId" element={<ProjectWorkspace userId={userId} />} />
     </Routes>
   </BrowserRouter>
