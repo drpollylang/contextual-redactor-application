@@ -1806,7 +1806,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         style={{
           width: "25vw",
           maxWidth: "500px",
-          paddingTop: "30px"  
+          paddingTop: "15px"  
         }}
       ></div>
       {/* Header */}
