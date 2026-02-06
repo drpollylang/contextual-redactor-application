@@ -2625,7 +2625,7 @@ const App: React.FC = () => {
                 }}
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <span>🗂️</span> Download redacted copy of **this** PDF
+                <span>🗂️</span> Download final redacted version of current PDF
               </div>
 
               <div style={{ height: 6 }} />
@@ -2653,7 +2653,7 @@ const App: React.FC = () => {
                 }}
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <span>📦</span> Download redacted copies of **all** PDFs
+                <span>📦</span> Download final redacted versions of all PDFs
               </div>
             </div>
           )}
