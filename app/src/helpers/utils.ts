@@ -37,3 +37,7 @@ export function resolveId(h: AnyHighlight): string {
   const d = getData(h);
   return d.id;
 }
+
+export function buildPdfId(projectId: string, fileName: string) {
+  return `${projectId}::${fileName}`;
+}

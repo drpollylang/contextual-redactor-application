@@ -14,7 +14,7 @@ import FiltersPage, { HighlightFilters as FiltersHighlightFilters } from "./Filt
 import SettingsPage, { STATIC_AI_RULES } from "./SettingsPage";
 import HistoryTimeline from "./HistoryTimeline";
 import { applyAiRedactionsPlugin } from "../plugins/applyAiRedactionsPlugin";
-
+import { buildPdfId } from "../helpers/utils"
 import { buildRedactedBlobFromPdfjsDoc, groupActiveRectsByPage } from "../lib/pdfRedactor";
 import { saveFinalPdfToBlob } from "../lib/blobPersist";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
@@ -647,18 +647,22 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
             }
           }
 
-          highlightsMap[projectId] = all;
-          activeMap[projectId] = all.filter(h => activeIds.includes(h.id));
+          const pdfId = buildPdfId(projectId!, fileName);
+
+          // highlightsMap[projectId] = all;
+          // activeMap[projectId] = all.filter(h => activeIds.includes(h.id));
+          highlightsMap[pdfId] = all;
+          activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
 
           uploaded.push({
-            id: projectId,
+            id: pdfId,
             name: fileName,
             url: pdfUrl
           });
 
           // OPTIONAL: Write Dexie as a cache (but we won't read from it on startup)
           await db.pdfs.put({
-            id: projectId,
+            id: pdfId,
             name: fileName,
             originalBase64: null,            // we are not reading Dexie as source of truth
             workingBase64: null,
@@ -742,7 +746,8 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
      PDF upload handler
      ========================= */
   const handlePdfUpload = async (file: File) => {
-    const id = getNextId();
+    // const id = getNextId();
+    const id = buildPdfId(projectId!, file.name);
     const base64 = await fileToBase64(file);
 
     // Ensure DB row exists BEFORE any highlight writes can occur
