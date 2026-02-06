@@ -15,6 +15,17 @@ import SettingsPage, { STATIC_AI_RULES } from "./SettingsPage";
 import HistoryTimeline from "./HistoryTimeline";
 import { applyAiRedactionsPlugin } from "./plugins/applyAiRedactionsPlugin";
 
+import { buildRedactedBlobFromPdfjsDoc, groupActiveRectsByPage } from "./lib/pdfRedactor";
+import { saveFinalPdfToBlob } from "./lib/blobPersist";
+// import * as pdfjsLib from "pdfjs-dist/build/pdf"; // for loading non-current PDFs
+// import "pdfjs-dist/build/pdf.worker";
+// import * as pdfjsLib from "pdfjs-dist";
+// import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import { DEFAULT_WORKER_SRC } from "../../src/components/PdfLoader"; // exported above
+
+// pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
 import {
   GhostHighlight,
   Highlight,
@@ -40,6 +51,8 @@ import { listUserDocuments, getDownloadSas } from "./lib/apiClient";
 /* =========================
    Local helpers & types
    ========================= */
+
+
 type UploadedPdf = { id: string; name: string; url: string };
 
 const getNextId = () => String(Math.random()).slice(2);
@@ -90,6 +103,39 @@ async function fetchJson<T>(container: string, blobPath: string, ttlMinutes = 10
 //   return "rgba(255, 226, 143, 0.7)";
 // }
 
+// Load a PDF.js document from a URL (object URL or SAS URL)
+async function loadPdfDocumentFromUrl(url: string) {
+  // Ensure workerSrc is set (idempotent)
+  GlobalWorkerOptions.workerSrc = DEFAULT_WORKER_SRC;
+  const task = getDocument({ url });
+  return await task.promise;
+}
+
+// Utility to force a browser download
+function downloadBlob(blob: Blob, fileName: string) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 0);
+}
+
+// Normalize a redacted file name that won’t overwrite the original
+function redactedName(originalName: string) {
+  const dot = originalName.lastIndexOf(".");
+  if (dot > 0) {
+    const base = originalName.slice(0, dot);
+    const ext = originalName.slice(dot);
+    return `${base}.redacted${ext}`;
+  }
+  return `${originalName}.redacted.pdf`;
+}
+
+
 /* =========================
    Component
    ========================= */
@@ -99,6 +145,8 @@ const App: React.FC = () => {
   const [currentPdfId, setCurrentPdfId] = useState<string | null>(null);
 
   const [userId, setUserId] = useState<string>("anonymous");
+
+  const [fabOpen, setFabOpen] = useState(false);
 
   // Settings page
   const [showSettings, setShowSettings] = useState(false);
@@ -2421,6 +2469,59 @@ const App: React.FC = () => {
     }
   };
 
+  /* ------------------------------------
+     Redact and export pdfs (current/all)
+     ----------------------------------- */
+  // Redact and export current pdf
+  async function redactAndExportCurrentPdf() {
+    if (!currentPdfId) return;
+
+    const current = uploadedPdfs.find(p => p.id === currentPdfId);
+    if (!current) return;
+
+    // Active highlights for the current doc (checkbox-selected)
+    const active = docHighlights[currentPdfId] ?? [];
+    const activeByPage = groupActiveRectsByPage(active as any);
+
+    // Use the loaded PDF.js document when available (fast path)
+    let pdfDoc = pdfDocumentRef.current;
+    if (!pdfDoc) {
+      // Fallback: load the URL for this PDF
+      pdfDoc = await loadPdfDocumentFromUrl(current.url);
+    }
+
+    // Build a rasterized redacted PDF
+    const finalBlob = await buildRedactedBlobFromPdfjsDoc(pdfDoc, activeByPage, 2.0);
+
+    // Upload to Blob Storage: /final/<fileName>
+    const projectId = "DevTesting"; // TODO: replace with real project ID when available
+    await saveFinalPdfToBlob(userId, projectId, finalBlob, current.name);
+
+    // Download locally (avoid overwriting original)
+    downloadBlob(finalBlob, redactedName(current.name));
+  }
+
+  // Redact and export all open pdfs
+  async function redactAndExportAllPdfs() {
+    // Process sequentially to avoid memory spikes on big docs
+    for (const pdf of uploadedPdfs) {
+      const active = (docHighlights[pdf.id] ?? []);
+      const activeByPage = groupActiveRectsByPage(active as any);
+
+      // If it's the current doc, reuse the already-open pdfDocumentRef
+      let pdfDoc = (pdf.id === currentPdfId ? pdfDocumentRef.current : null);
+      if (!pdfDoc) {
+        pdfDoc = await loadPdfDocumentFromUrl(pdf.url);
+      }
+
+      const finalBlob = await buildRedactedBlobFromPdfjsDoc(pdfDoc, activeByPage, 2.0);
+
+      const projectId = "DevTesting"; // TODO: real project when ready
+      await saveFinalPdfToBlob(userId, projectId, finalBlob, pdf.name);
+
+      downloadBlob(finalBlob, redactedName(pdf.name));
+    }
+  }
 
   /* =========================
      INFO MODAL & History UI
@@ -2465,6 +2566,99 @@ const App: React.FC = () => {
           flexGrow: 1,
         }}
       >
+
+      {/* Floating Action Button + Menu - generate final redactions + download pdfs */}
+      <div style={{ position: "absolute", right: 16, bottom: 16, zIndex: 4000 }}>
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => setFabOpen((v) => !v)}
+            title="Export redacted"
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              border: "none",
+              background: "#0078d4", // Fluent primary
+              color: "white",
+              boxShadow: "0 6px 12px rgba(0,0,0,0.25)",
+              cursor: "pointer",
+              fontSize: 24,
+              lineHeight: "56px",
+            }}
+          >
+            ⬇︎
+          </button>
+
+          {fabOpen && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                bottom: 64,
+                background: "white",
+                borderRadius: 8,
+                boxShadow: "0 8px 18px rgba(0,0,0,0.25)",
+                padding: 8,
+                minWidth: 260,
+              }}
+            >
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#333",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+                onClick={async () => {
+                  setFabOpen(false);
+                  try {
+                    await redactAndExportCurrentPdf();
+                  } catch (e) {
+                    console.error(e);
+                    alert("Failed to export current redacted PDF. See console.");
+                  }
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <span>🗂️</span> Download redacted copy of **this** PDF
+              </div>
+
+              <div style={{ height: 6 }} />
+
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#333",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+                onClick={async () => {
+                  setFabOpen(false);
+                  try {
+                    await redactAndExportAllPdfs();
+                  } catch (e) {
+                    console.error(e);
+                    alert("Failed to export ALL redacted PDFs. See console.");
+                  }
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <span>📦</span> Download redacted copies of **all** PDFs
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
         
       {/* TEMP TEST BUTTON */}
         {/* <div style={{ padding: 8 }}>

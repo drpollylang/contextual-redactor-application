@@ -89,3 +89,55 @@ export async function saveWorkingSnapshotToBlob(userId: string, projectId: strin
 
   console.log("[BLOB] Working snapshot saved:", { pdfPath: pdfPath ?? null, jsonPath });
 }
+
+// Add a Blob uploader for final redacted pdfs
+function finalBlobPath(userId: string, projectId: string, fileName: string) {
+  return `${userId}/${projectId}/final/${fileName}`;
+}
+
+/**
+ * Upload the final (true‑redacted) PDF into:
+ *   files/<userId>/<projectId>/final/<fileName>
+ */
+export async function saveFinalPdfToBlob(
+  userId: string,
+  projectId: string,
+  finalBlob: Blob,
+  fileName: string
+) {
+  const blobPath = finalBlobPath(userId, projectId, fileName);
+  await uploadToBlob("files", blobPath, finalBlob);
+  console.log("[BLOB] Final redacted PDF uploaded:", blobPath);
+  return { blobPath };
+}
+
+
+// export async function saveFinalPdfToBlob(
+//   userId: string,
+//   projectId: string,
+//   fileName: string,
+//   finalBlob: Blob
+// ): Promise<{ blobPath: string }> {
+//   // Keep your current convention (same container and pathing as the rest):
+//   // files/<userId>/<projectId>/final/<fileName>
+//   const blobPath = `${userId}/${projectId}/final/${fileName}`;
+
+//   // If your existing saveOriginalPdfToBlob knows how to PUT blobs (via SAS or API),
+//   // you can reuse the same internal helper. For example, if you have an upload API:
+//   const res = await fetch("/api/upload-final", {
+//     method: "POST",
+//     body: (() => {
+//       const fd = new FormData();
+//       fd.append("userId", userId);
+//       fd.append("projectId", projectId);
+//       fd.append("path", blobPath);
+//       fd.append("file", finalBlob, fileName);
+//       return fd;
+//     })(),
+//   });
+
+//   if (!res.ok) {
+//     throw new Error(`Failed to upload final PDF: ${res.status} ${await res.text()}`);
+//   }
+//   return { blobPath };
+// }
