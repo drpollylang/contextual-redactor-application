@@ -1909,6 +1909,16 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
     }
   }
 
+
+  /* ==================================
+     DEBUG PROJECT PDF/HIGHLIGHT UPLOAD
+     ================================== */
+  console.log("uploadedPdfs:", uploadedPdfs);
+  console.log("allHighlights keys:", Object.keys(allHighlights));
+  console.log("docHighlights keys:", Object.keys(docHighlights));
+  console.log("currentPdfId:", currentPdfId);
+
+
   /* =========================
      INFO MODAL & History UI
      ========================= */
