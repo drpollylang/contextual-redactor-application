@@ -20,7 +20,7 @@ import { saveFinalPdfToBlob } from "../lib/blobPersist";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import { DEFAULT_WORKER_SRC } from "../../../src/components/PdfLoader"; // exported above
 
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import {
   GhostHighlight,
@@ -126,6 +126,7 @@ function redactedName(originalName: string) {
    ========================= */
 
 export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) { 
+  const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>(); // projectId is now dynamic for all uploads/snapshots/final PDFs
 
   if (!projectId) {
@@ -2089,6 +2090,19 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
   // ----- Render -----
   return (
     <div className="App" style={{ display: "flex", height: "100vh" }}>
+      {/* HOME BUTTON */}
+      <DefaultButton
+        text="Home"
+        iconProps={{ iconName: "Home" }}
+        onClick={() => navigate("/")}
+        style={{
+          position: "absolute",
+          top: 12,
+          left: 12,
+          zIndex: 5000
+        }}
+      />
+
       {/* SIDEBAR */}
       <Sidebar
         uploadedPdfs={uploadedPdfs}
