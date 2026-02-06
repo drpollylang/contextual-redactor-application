@@ -1191,6 +1191,8 @@ import {
 import { CommentedHighlight } from "./types";
 import { getHighlightColor } from "./helpers/color";
 
+import { useNavigate } from "react-router-dom";
+
 // /* =========================
 //    Props
 // ========================= */
@@ -1668,6 +1670,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   redactionStatus,
 }) => {
 
+  const navigate = useNavigate();
+
   /* =========================
      LOCAL UI STATE
   ========================== */
@@ -1794,12 +1798,42 @@ const Sidebar: React.FC<SidebarProps> = ({
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="sidebar" style={{ width: "25vw", maxWidth: "500px" }}>
-      {/* Header */}
-      <div className="description" style={{ padding: "1rem" }}>
-        <h2 style={{ marginBottom: "1rem" }}>Somerset Council Redaction Tool</h2>
-        <p style={{ fontSize: "0.7rem" }}>
-          https://github.com/drpollylang/contextual-redactor-application
+    // <div className="sidebar" style={{ width: "25vw", maxWidth: "500px" }}>
+    //   {/* Header */}
+    //   <div className="description" style={{ padding: "1rem" }}>
+    //     <h2 style={{ marginBottom: "1rem" }}>Somerset Council Redaction Tool</h2>
+    //     <p style={{ fontSize: "0.7rem" }}>
+    //       https://github.com/drpollylang/contextual-redactor-application
+    //     </p>
+    //   </div>
+    
+    <div className="description" style={{
+      padding: "1rem",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px"
+    }}>
+
+      {/* Home button */}
+      <DefaultButton
+        text="Home"
+        iconProps={{ iconName: "Home" }}
+        onClick={() => navigate("/")}
+        style={{
+          position: "absolute",
+          top: 12,
+          left: 12,
+          zIndex: 5000
+        }}
+      />
+
+      {/* Info */}
+      <div>
+        <h2 style={{ margin: 0, fontSize: "1.2rem" }}>
+          Somerset Council Redaction Tool
+        </h2>
+        <p style={{ fontSize: "0.65rem", margin: 0 }}>
+          github.com/drpollylang/contextual-redactor-application
         </p>
       </div>
 

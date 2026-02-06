@@ -2091,7 +2091,7 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
   return (
     <div className="App" style={{ display: "flex", height: "100vh" }}>
       {/* HOME BUTTON */}
-      <DefaultButton
+      {/* <DefaultButton
         text="Home"
         iconProps={{ iconName: "Home" }}
         onClick={() => navigate("/")}
@@ -2101,7 +2101,7 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
           left: 12,
           zIndex: 5000
         }}
-      />
+      /> */}
 
       {/* SIDEBAR */}
       <Sidebar
