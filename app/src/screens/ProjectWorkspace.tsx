@@ -2094,13 +2094,14 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
             Upload a PDF to begin
           </div>
         ) : (
-          <PdfLoader document={currentPdf.url}>
+          <PdfLoader key={currentPdfId} document={currentPdf.url}>
             {(pdfDocument) => {
               // 🔗 Capture pdf.js document for PDF.js search & extraction
               pdfDocumentRef.current = pdfDocument;
 
               return (
                 <PdfHighlighter
+                  key={currentPdfId}
                   enableAreaSelection={(event) => event.altKey}
                   pdfDocument={pdfDocument}
                   onScrollAway={resetHash}
