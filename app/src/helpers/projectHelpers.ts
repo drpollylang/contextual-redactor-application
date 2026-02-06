@@ -10,25 +10,31 @@ export async function loadProjects(userId: string): Promise<ProjectRecord[]> {
   try {
     // 1) Load from Blob Storage
     const res = await fetch(`/api/listProjects?userId=${encodeURIComponent(userId)}`);
-    const json = await res.json();
-    const projectIds = json.projects as string[];
+    if (!res.ok) {
+      console.warn("[loadProjects] listProjects returned", res.status);
+      return [];
+    }
+    // Be resilient if empty body accidentally returned
+    const text = await res.text();
+    const json = text ? JSON.parse(text) : { projects: [] as string[] };
 
-    // 2) For each project ID, look for its stored name in Dexie (fallback to ID)
-    const localProjects = await db.table("projects").toArray();
-    const map = new Map(localProjects.map(p => [p.id, p.name]));
+    const ids = (json?.projects ?? []) as string[];
 
-    const merged = projectIds.map(id => ({
+    // Combine with local names if present
+    const locals = await db.table("projects").toArray();
+    const nameMap = new Map(locals.map((p: any) => [p.id, p.name]));
+
+    const merged: ProjectRecord[] = ids.map((id) => ({
       id,
-      name: map.get(id) ?? id   // fallback
+      name: nameMap.get(id) ?? id
     }));
 
-    // 3) Ensure Dexie knows about all Blob projects
+    // Ensure Dexie reflects blob set
     for (const p of merged) {
       await db.table("projects").put(p);
     }
 
     return merged;
-
   } catch (e) {
     console.error("[loadProjects] failed", e);
     return [];
@@ -36,8 +42,8 @@ export async function loadProjects(userId: string): Promise<ProjectRecord[]> {
 }
 
 
-export async function createProject(userId: string): Promise<ProjectRecord | null> {
-  const name = prompt("Enter project name:");
+export async function createProject(userId: string, name: string): Promise<ProjectRecord | null> {
+  // const name = prompt("Enter project name:");
   if (!name || !name.trim()) return null;
 
   const projectId = uuidv4();

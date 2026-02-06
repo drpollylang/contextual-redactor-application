@@ -6,12 +6,15 @@ app.http("listProjects", {
   authLevel: "anonymous",
   handler: async (req, ctx): Promise<HttpResponseInit> => {
     try {
-      const userId = req.query.get("userId");
+      const userId = (req.query.get("userId") || "").trim();
+      if (!userId) {
+        return { status: 400, jsonBody: { error: "userId is required" } };
+      }
+
       const service = getServiceClient();
-      const container = service.getContainerClient(DEFAULT_CONTAINER);
+      const container = service.getContainerClient(DEFAULT_CONTAINER || "files");
 
-      const prefix = `files/${userId}/`;
-
+      const prefix = `${userId}/`;
       const projectIds = new Set<string>();
 
       for await (const item of container.listBlobsByHierarchy("/", { prefix })) {
@@ -30,8 +33,8 @@ app.http("listProjects", {
       return { jsonBody: { projects: [...projectIds] } };
 
     } catch (e) {
-      ctx.error("[listProjects] error", e);
-      return { status: 500 };
+      ctx.error("[listProjects] error:", e?.message, e?.stack);
+      return { status: 500, jsonBody: { error: "Internal server error" } };
     }
   }
 });

@@ -12,22 +12,24 @@ app.http("createProjectFolder", {
   handler: async (req, ctx) => {
     try {
       const body = (await req.json()) as CreateProjectPayload;
-
-      const { userId, projectId } = body; // <-- typed
+      const userId = (body?.userId || "").trim();
+      const projectId = (body?.projectId || "").trim();
 
       if (!userId || !projectId) {
-        return { status: 400, jsonBody: { error: "Missing userId or projectId" } };
+        return { status: 400, jsonBody: { error: "userId and projectId are required" } };
       }
 
       const service = getServiceClient();
-      const container = service.getContainerClient(DEFAULT_CONTAINER);
+      const container = service.getContainerClient(DEFAULT_CONTAINER || "files");
 
-      const prefix = `files/${userId}/${projectId}/`;
-      const placeholder = container.getBlockBlobClient(prefix + "placeholder.txt");
+      const folderPrefix = `${userId}/${projectId}/`;
+      const placeholder = container.getBlockBlobClient(folderPrefix + "placeholder.txt");
 
-      await placeholder.upload("project initialized", "project initialized".length);
+      const content = "project initialized";
+      await placeholder.upload(content, Buffer.byteLength(content));
 
       return { jsonBody: { ok: true } };
+
 
     } catch (e) {
       ctx.error("[createProjectFolder] error", e);

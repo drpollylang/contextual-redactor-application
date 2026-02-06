@@ -128,10 +128,14 @@ import {
   Spinner,
   SpinnerSize,
   // ContextualMenu,
-  IContextualMenuProps
+  IContextualMenuProps,
+  // MessageBar,
+  MessageBarType
 } from "@fluentui/react";
+
 import { useNavigate } from "react-router-dom";
 import {ProjectRecord } from "../helpers/projectHelpers";
+import Toast from "../components/Toast";
 
 interface Project {
   id: string;
@@ -142,7 +146,7 @@ interface HomePageProps {
   userId: string;
   userName: string;
   loadProjects: (userId: string) => Promise<ProjectRecord[]>;
-  createProject: (userId: string) => Promise<ProjectRecord | null>;
+  createProject: (userId: string, name: string) => Promise<ProjectRecord | null>;
   deleteProject: (userId: string, projectId: string) => Promise<void>;
 }
 
@@ -162,6 +166,13 @@ export default function ProjectHome({
 
   const navigate = useNavigate();
 
+  // Dialog state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+
+  // Toast state
+  const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
+
   // Load projects
   useEffect(() => {
     (async () => {
@@ -173,7 +184,7 @@ export default function ProjectHome({
   }, [userId]);
 
   
-  const handleCreateProject = () => createProject(userId);
+  // const handleCreateProject = () => createProject(userId);
   const handleDeleteProject = (id: string) => deleteProject(userId, id);
 
   const openDeleteDialog = (proj: Project) => {
@@ -186,6 +197,10 @@ export default function ProjectHome({
       // await deleteProject(selectedProject.id);
       await handleDeleteProject(selectedProject.id);
       setProjects(prev => prev.filter(p => p.id !== selectedProject.id));
+      setToast({
+            message: `Deleted project "${selectedProject.name}".`,
+            type: MessageBarType.warning,
+          });
     }
     setConfirmDeleteOpen(false);
     setSelectedProject(null);
@@ -210,6 +225,14 @@ export default function ProjectHome({
 
   return (
     <div style={{ height: "100vh", padding: "20px", position: "relative" }}>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
+      )}
 
       {/* Spinner overlay */}
       {loading && (
@@ -237,7 +260,8 @@ export default function ProjectHome({
         <DefaultButton
           text="Create New Project"
           iconProps={{ iconName: "Add" }}
-          onClick={handleCreateProject}
+          // onClick={handleCreateProject}
+          onClick={() => setIsCreateDialogOpen(true)}
           styles={{ root: { height: 40, fontSize: 16, padding: "0 20px" } }}
         />
 
@@ -345,6 +369,68 @@ export default function ProjectHome({
         <DialogFooter>
           <PrimaryButton text="Delete" onClick={confirmDelete} />
           <SecondaryButton text="Cancel" onClick={() => setConfirmDeleteOpen(false)} />
+        </DialogFooter>
+      </Dialog>
+
+      {/* Create project dialog */}
+      <Dialog
+        hidden={!isCreateDialogOpen}
+        onDismiss={() => setIsCreateDialogOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: "Create New Project",
+          subText: "Enter a name for your new project.",
+        }}
+        modalProps={{
+          isBlocking: false,
+        }}
+      >
+        <input
+          autoFocus
+          value={newProjectName}
+          onChange={(e) => setNewProjectName(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "8px",
+            fontSize: 14,
+            marginBottom: 10,
+          }}
+          placeholder="Project name"
+        />
+
+        <DialogFooter>
+          <PrimaryButton
+            text="Create Project"
+            disabled={!newProjectName.trim()}
+            onClick={async () => {
+              const proj = await createProject(userId, newProjectName.trim());
+              if (proj) {
+                setProjects((prev) => [...prev, proj]);
+
+                // Show success toast
+                setToast({
+                  message: `Project "${proj.name}" created successfully.`,
+                  type: MessageBarType.success,
+                });
+              } else {
+                setToast({
+                  message: "Failed to create project.",
+                  type: MessageBarType.error,
+                });
+              }
+
+              setNewProjectName("");
+              setIsCreateDialogOpen(false);
+            }}
+          />
+
+          <DefaultButton
+            text="Cancel"
+            onClick={() => {
+              setNewProjectName("");
+              setIsCreateDialogOpen(false);
+            }}
+          />
         </DialogFooter>
       </Dialog>
 
