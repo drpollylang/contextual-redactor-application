@@ -20,8 +20,8 @@ import { saveFinalPdfToBlob } from "../lib/blobPersist";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import { DEFAULT_WORKER_SRC } from "../../../src/components/PdfLoader"; // exported above
 
-// import { useNavigate, useParams } from "react-router-dom";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+// import { useParams } from "react-router-dom";
 
 import {
   GhostHighlight,
@@ -38,7 +38,7 @@ import "../style/App.css";
 import { CommentedHighlight } from "../types";
 
 import { db, fileToBase64, base64ToBlob } from "../storage";
-import { DefaultButton } from "@fluentui/react";
+import { DefaultButton, IconButton } from "@fluentui/react";
 
 import { saveOriginalPdfToBlob, saveWorkingSnapshotToBlob } from "../lib/blobPersist";
 import { listUserDocuments, getDownloadSas } from "../lib/apiClient";
@@ -127,7 +127,7 @@ function redactedName(originalName: string) {
    ========================= */
 
 export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) { 
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>(); // projectId is now dynamic for all uploads/snapshots/final PDFs
 
   if (!projectId) {
@@ -2103,6 +2103,27 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
           zIndex: 5000
         }}
       /> */}
+      {/* HOME BUTTON (Fluent IconButton) */}
+      <IconButton
+        iconProps={{ iconName: "Home" }}
+        title="Home"
+        ariaLabel="Go back to home"
+        onClick={() => navigate("/")}
+        styles={{
+          root: {
+            position: "fixed",
+            top: 14,
+            left: 14,
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            background: "white",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+            zIndex: 5000,
+          },
+          icon: { fontSize: 18 }
+        }}
+      />
 
       {/* SIDEBAR */}
       <Sidebar
