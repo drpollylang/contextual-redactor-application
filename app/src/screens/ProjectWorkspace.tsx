@@ -583,37 +583,195 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
   }
 
   // App.tsx — replace the Dexie restore effect with this Blob-first restore:
+  // useEffect(() => {
+  //   (async () => {
+  //     try {
+  //       // 1) Restore preferences (zoom, highlightPen, lastOpenedPdfId, userIdentity)
+  //       const prefs = await db.preferences.get("preferences");
+  //       if (prefs) {
+  //         setZoom(prefs.zoom);
+  //         setHighlightPen(prefs.highlightPenEnabled);
+  //         // setUserId(prefs.userIdentity ?? "anonymous");
+  //       } else {
+  //         // setUserId("anonymous");
+  //       }
+
+  //       const effectiveUserId = prefs?.userIdentity ?? "anonymous";
+
+  //       // 2) List user documents from Blob Storage
+  //       const docs = (await listUserDocuments(effectiveUserId));
+
+  //       // 🔽 Keep only current project
+  //       const docsForProject = docs.filter(d => d.projectId === projectId);
+
+  //       // 3) Build viewer state from working/original + highlights JSON
+  //       const uploaded: UploadedPdf[] = [];
+  //       const highlightsMap: Record<string, CommentedHighlight[]> = {};
+  //       const activeMap: Record<string, CommentedHighlight[]> = {};
+
+  //       for (const d of docsForProject) {
+  //         // const projectId = d.projectId;
+  //         const fileName = d.fileName;
+
+  //         // Prefer working PDF; else original
+  //         let pdfUrl: string | null = null;
+  //         if (d.workingPath) {
+  //           pdfUrl = await fetchBlobUrl("files", d.workingPath);
+  //         } else if (d.originalPath) {
+  //           pdfUrl = await fetchBlobUrl("files", d.originalPath);
+  //         }
+
+  //         if (!pdfUrl) {
+  //           console.warn("[RESTORE] No PDF blob found for project:", projectId);
+  //           continue;
+  //         }
+
+  //         // Highlights JSON, if present
+  //         type HighlightsPayload = {
+  //           pdfId: string;
+  //           fileName: string;
+  //           allHighlights: CommentedHighlight[];
+  //           activeHighlights: string[];
+  //           savedAt?: string;
+  //         };
+
+  //         let all: CommentedHighlight[] = [];
+  //         let activeIds: string[] = [];
+      
+  //         if (d.highlightsPath) {
+  //           const payload = await fetchJson<HighlightsPayload>("files", d.highlightsPath);
+  //           if (payload) {
+  //             // all = payload.allHighlights ?? [];
+  //             all = (payload.allHighlights ?? []).map(normalizeHighlight);
+  //             activeIds = payload.activeHighlights ?? [];
+  //           }
+  //         }
+
+  //         const pdfId = buildPdfId(projectId!, fileName);
+
+  //         // highlightsMap[projectId] = all;
+  //         // activeMap[projectId] = all.filter(h => activeIds.includes(h.id));
+  //         highlightsMap[pdfId] = all;
+  //         activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
+  //         console.log("Highlight keys:", Object.keys(highlightsMap));
+  //         console.log("Active keys:", Object.keys(activeMap));
+
+  //         uploaded.push({
+  //           id: pdfId,
+  //           name: fileName,
+  //           url: pdfUrl
+  //         });
+
+  //         // OPTIONAL: Write Dexie as a cache (but we won't read from it on startup)
+  //         await db.pdfs.put({
+  //           id: pdfId,
+  //           name: fileName,
+  //           originalBase64: null,            // we are not reading Dexie as source of truth
+  //           workingBase64: null,
+  //           finalBase64: null,
+  //           allHighlights: all,
+  //           activeHighlights: activeIds,
+  //         });
+  //       }
+
+  //       // 4) Apply to React state
+  //       setUploadedPdfs(prev => {
+  //         // Revoke previous object URLs (hot reload)
+  //         prev.forEach(p => URL.revokeObjectURL(p.url));
+  //         return uploaded;
+  //       });
+  //       setAllHighlights(highlightsMap);
+  //       setDocHighlights(activeMap);
+
+  //       // Choose current document: prefer lastOpenedPdfId, else first available
+  //       const lastId = prefs?.lastOpenedPdfId ?? null;
+  //       const hasLast = lastId && uploaded.some(p => p.id === lastId);
+  //       setCurrentPdfId(hasLast ? lastId : (uploaded[0]?.id ?? null));
+
+  //       setIsRestored(true);
+  //       console.log("[RESTORE] Blob-first restore complete:", { count: uploaded.length });
+  //     } catch (e) {
+  //       console.error("[RESTORE] Blob-first restore failed:", e);
+
+  //       // Fallback: If Blob restore fails, optionally fall back to Dexie for offline usage
+  //       const pdfs = await db.pdfs.toArray();
+  //       const restored: UploadedPdf[] = (pdfs as any[]).map((p: any) => {
+  //         const w64 = p.workingBase64 ?? p.originalBase64;
+  //         const blob = w64
+  //           ? base64ToBlob(w64)
+  //           : new Blob([], { type: "application/pdf" });
+  //         return {
+  //           id: p.id as string,
+  //           name: p.name as string,
+  //           url: URL.createObjectURL(blob),
+  //         };
+  //       });
+
+  //       setUploadedPdfs(restored);
+
+  //       const highlightsMap: Record<string, CommentedHighlight[]> = {};
+  //       const activeMap: Record<string, CommentedHighlight[]> = {};
+  //       for (const p of pdfs as any[]) {
+  //         const all: CommentedHighlight[] = p.allHighlights ?? [];
+  //         const actIds: string[] = p.activeHighlights ?? [];
+  //         highlightsMap[p.id] = all;
+  //         activeMap[p.id] = all.filter((h) => actIds.includes(h.id));
+  //       }
+
+  //       setAllHighlights(highlightsMap);
+  //       setDocHighlights(activeMap);
+  //       setIsRestored(true);
+  //     }
+  //   })();
+  // }, []);
+
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       try {
-        // 1) Restore preferences (zoom, highlightPen, lastOpenedPdfId, userIdentity)
+        // 0) Clear in-memory state so we never leak between projects
+        setUploadedPdfs([]);
+        setAllHighlights({});
+        setDocHighlights({});
+        setIsRestored(false);
+
+        // 1) Restore preferences (zoom, pen)
         const prefs = await db.preferences.get("preferences");
-        if (prefs) {
-          setZoom(prefs.zoom);
-          setHighlightPen(prefs.highlightPenEnabled);
-          // setUserId(prefs.userIdentity ?? "anonymous");
-        } else {
-          // setUserId("anonymous");
+        if (!cancelled) {
+          if (prefs) {
+            setZoom(prefs.zoom);
+            setHighlightPen(prefs.highlightPenEnabled);
+          }
         }
 
         const effectiveUserId = prefs?.userIdentity ?? "anonymous";
 
-        // 2) List user documents from Blob Storage
-        const docs = (await listUserDocuments(effectiveUserId));
+        // 2) List documents (keep only current project)
+        //    If you added the ?projectId= filter on backend, you can call it instead.
+        const docs = await listUserDocuments(effectiveUserId);
+        if (cancelled) return;
 
-        // 🔽 Keep only current project
-        const docsForProject = docs.filter(d => d.projectId === projectId);
+        const docsForProject = docs.filter((d) => d.projectId === projectId);
 
         // 3) Build viewer state from working/original + highlights JSON
         const uploaded: UploadedPdf[] = [];
         const highlightsMap: Record<string, CommentedHighlight[]> = {};
         const activeMap: Record<string, CommentedHighlight[]> = {};
 
+        type HighlightsPayload = {
+          pdfId: string;
+          fileName: string;
+          allHighlights: CommentedHighlight[];
+          activeHighlights: string[];
+          savedAt?: string;
+        };
+
         for (const d of docsForProject) {
-          const projectId = d.projectId;
+          const docProjectId = d.projectId; // 🔒 avoid shadowing outer projectId
           const fileName = d.fileName;
 
-          // Prefer working PDF; else original
+          // 3a) Prefer working PDF; else original
           let pdfUrl: string | null = null;
           if (d.workingPath) {
             pdfUrl = await fetchBlobUrl("files", d.workingPath);
@@ -622,51 +780,47 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
           }
 
           if (!pdfUrl) {
-            console.warn("[RESTORE] No PDF blob found for project:", projectId);
+            console.warn("[RESTORE] No PDF blob found for file:", { docProjectId, fileName });
             continue;
           }
 
-          // Highlights JSON, if present
-          type HighlightsPayload = {
-            pdfId: string;
-            fileName: string;
-            allHighlights: CommentedHighlight[];
-            activeHighlights: string[];
-            savedAt?: string;
-          };
-
+          // 3b) Load highlights (if present) and normalize
           let all: CommentedHighlight[] = [];
           let activeIds: string[] = [];
-      
+
           if (d.highlightsPath) {
             const payload = await fetchJson<HighlightsPayload>("files", d.highlightsPath);
-            if (payload) {
-              // all = payload.allHighlights ?? [];
+
+            // Optional guard: make sure the highlights belong to this file
+            const highlightsFileName = d.highlightsPath.split("/").pop() ?? "";
+            const baseFromHighlights = highlightsFileName.replace(/\.highlights\.json$/i, "");
+            if (payload && baseFromHighlights === `${fileName}`) {
               all = (payload.allHighlights ?? []).map(normalizeHighlight);
               activeIds = payload.activeHighlights ?? [];
+            } else if (payload) {
+              // If mismatched (e.g., earlier backend bug), skip to avoid cross-file contamination
+              console.warn("[RESTORE] Highlights filename mismatch — skipping", {
+                fileName,
+                highlightsFileName,
+              });
             }
           }
 
-          const pdfId = buildPdfId(projectId!, fileName);
+          // 3c) Build stable per-document id
+          const pdfId = buildPdfId(docProjectId, fileName);
 
-          // highlightsMap[projectId] = all;
-          // activeMap[projectId] = all.filter(h => activeIds.includes(h.id));
+          // 3d) Populate maps using pdfId (NEVER projectId)
           highlightsMap[pdfId] = all;
-          activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
-          console.log("Highlight keys:", Object.keys(highlightsMap));
-          console.log("Active keys:", Object.keys(activeMap));
+          activeMap[pdfId] = all.filter((h) => activeIds.includes(h.id));
 
-          uploaded.push({
-            id: pdfId,
-            name: fileName,
-            url: pdfUrl
-          });
+          // 3e) Add to uploaded list
+          uploaded.push({ id: pdfId, name: fileName, url: pdfUrl });
 
-          // OPTIONAL: Write Dexie as a cache (but we won't read from it on startup)
+          // 3f) Optional Dexie cache (used by snapshot uploader)
           await db.pdfs.put({
             id: pdfId,
             name: fileName,
-            originalBase64: null,            // we are not reading Dexie as source of truth
+            originalBase64: null,
             workingBase64: null,
             finalBase64: null,
             allHighlights: all,
@@ -674,37 +828,38 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
           });
         }
 
-        // 4) Apply to React state
-        setUploadedPdfs(prev => {
-          // Revoke previous object URLs (hot reload)
-          prev.forEach(p => URL.revokeObjectURL(p.url));
+        // ---- DEBUG: log BEFORE state is applied (so you can see the planned keys)
+        console.log("[RESTORE] BEFORE setState → uploaded ids:", uploaded.map((u) => u.id));
+        console.log("[RESTORE] BEFORE setState → allHighlights keys:", Object.keys(highlightsMap));
+        console.log("[RESTORE] BEFORE setState → docHighlights keys:", Object.keys(activeMap));
+
+        if (cancelled) return;
+
+        // 4) Apply to React state in one go
+        setUploadedPdfs((prev) => {
+          // Revoke prior object URLs (hot reload cleanup)
+          prev.forEach((p) => URL.revokeObjectURL(p.url));
           return uploaded;
         });
         setAllHighlights(highlightsMap);
         setDocHighlights(activeMap);
 
-        // Choose current document: prefer lastOpenedPdfId, else first available
+        // 5) Select current document (prefer lastOpenedPdfId only if it exists in this project)
         const lastId = prefs?.lastOpenedPdfId ?? null;
-        const hasLast = lastId && uploaded.some(p => p.id === lastId);
-        setCurrentPdfId(hasLast ? lastId : (uploaded[0]?.id ?? null));
+        const hasLast = !!lastId && uploaded.some((p) => p.id === lastId);
+        setCurrentPdfId(hasLast ? lastId : uploaded[0]?.id ?? null);
 
         setIsRestored(true);
-        console.log("[RESTORE] Blob-first restore complete:", { count: uploaded.length });
+        console.log("[RESTORE] DONE:", { count: uploaded.length });
       } catch (e) {
         console.error("[RESTORE] Blob-first restore failed:", e);
 
-        // Fallback: If Blob restore fails, optionally fall back to Dexie for offline usage
+        // Fallback to Dexie for offline usage (unchanged)
         const pdfs = await db.pdfs.toArray();
         const restored: UploadedPdf[] = (pdfs as any[]).map((p: any) => {
           const w64 = p.workingBase64 ?? p.originalBase64;
-          const blob = w64
-            ? base64ToBlob(w64)
-            : new Blob([], { type: "application/pdf" });
-          return {
-            id: p.id as string,
-            name: p.name as string,
-            url: URL.createObjectURL(blob),
-          };
+          const blob = w64 ? base64ToBlob(w64) : new Blob([], { type: "application/pdf" });
+          return { id: p.id as string, name: p.name as string, url: URL.createObjectURL(blob) };
         });
 
         setUploadedPdfs(restored);
@@ -723,7 +878,12 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
         setIsRestored(true);
       }
     })();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]); // ⬅ ensure we re-restore when /project/:projectId changes
+
 
   /* =========================
      Persist preferences
