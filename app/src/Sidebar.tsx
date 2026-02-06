@@ -1799,6 +1799,16 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="sidebar" style={{ width: "25vw", maxWidth: "500px" }}>
+
+      {/* Add some padding at top of sidebar to leave room for Home icon/nav*/}
+      <div
+        className="sidebar"
+        style={{
+          width: "25vw",
+          maxWidth: "500px",
+          paddingTop: "60px"  
+        }}
+      ></div>
       {/* Header */}
       {/* <div className="description" style={{ padding: "1rem" }}>
         <h2 style={{ marginBottom: "1rem" }}>Somerset Council Redaction Tool</h2>
