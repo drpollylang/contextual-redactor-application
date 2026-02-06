@@ -124,6 +124,110 @@
 // });
 
 // /api/src/functions/listUserDocuments.ts
+// import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// import { getServiceClient, normalizePath, DEFAULT_CONTAINER } from "../shared/storage";
+
+// type UserDoc = {
+//   projectId: string;
+//   fileName: string;
+//   originalPath?: string;    // userId/<projectId>/original/<file>.pdf
+//   workingPath?: string;     // userId/<projectId>/working/<file>.pdf
+//   highlightsPath?: string;  // userId/<projectId>/working/<file>.pdf.highlights.json
+// };
+
+// /** Read userId from query or JSON body (POST/PUT/PATCH) safely. */
+// async function readUserId(req: HttpRequest): Promise<string | null> {
+//   // Prefer query (?userId=...)
+//   const q = req.query.get("userId");
+//   if (q && q.trim()) return q.trim();
+
+//   // Only parse JSON for methods that typically carry a body
+//   const method = (req.method || "GET").toUpperCase();
+//   if (!["POST", "PUT", "PATCH"].includes(method)) return null;
+
+//   const ct = (req.headers.get("content-type") || "").toLowerCase();
+//   if (!ct.includes("application/json")) return null;
+
+//   try {
+//     // Resolve Promise<unknown>, then narrow to the shape we need
+//     const body = (await req.json()) as { userId?: string } | null;
+//     const uid = (body?.userId ?? "").trim();
+//     return uid || null;
+//   } catch {
+//     return null;
+//   }
+// }
+
+// export async function listUserDocuments(req: HttpRequest, ctx: InvocationContext): Promise<HttpResponseInit> {
+//   try {
+//     const userId = await readUserId(req);
+//     if (!userId) {
+//       return { status: 400, jsonBody: { error: "userId is required (?userId=... or JSON {userId})" } };
+//     }
+
+//     const service = getServiceClient();
+//     const containerName = DEFAULT_CONTAINER || "files";
+//     const container = service.getContainerClient(containerName);
+
+//     const prefix = normalizePath(`${userId}/`);
+//     const docs: UserDoc[] = [];
+
+//     // Iterate project "folders" under userId/
+//     for await (const item of container.listBlobsByHierarchy("/", { prefix })) {
+//       if (item.kind !== "prefix") continue;
+
+//       const projectPrefix = item.name;                     // e.g. "user123/<projectId>/"
+//       const parts = projectPrefix.split("/").filter(Boolean);
+//       const projectId = parts[1];                          // ["user123","<projectId>"]
+
+//       let originalPath: string | undefined;
+//       let workingPath: string | undefined;
+//       let highlightsPath: string | undefined;
+//       let fileName: string | undefined;
+
+//       // Find original PDF (take first match)
+//       for await (const blob of container.listBlobsFlat({ prefix: projectPrefix + "original/" })) {
+//         if (blob.name.toLowerCase().endsWith(".pdf")) {
+//           originalPath = blob.name;
+//           fileName = blob.name.split("/").pop();
+//           break;
+//         }
+//       }
+
+//       // Find working PDF + highlights JSON
+//       for await (const blob of container.listBlobsFlat({ prefix: projectPrefix + "working/" })) {
+//         const lower = blob.name.toLowerCase();
+//         if (lower.endsWith(".highlights.json")) {
+//           highlightsPath = blob.name;
+//         } else if (lower.endsWith(".pdf")) {
+//           workingPath = blob.name;
+//           if (!fileName) fileName = blob.name.split("/").pop();
+//         }
+//       }
+
+//       docs.push({
+//         projectId,
+//         fileName: fileName ?? "document.pdf",
+//         originalPath,
+//         workingPath,
+//         highlightsPath
+//       });
+//     }
+
+//     return { jsonBody: { documents: docs } };
+//   } catch (err: any) {
+//     ctx.error("[listUserDocuments] error:", err?.message, err?.stack);
+//     return { status: 500, jsonBody: { error: "Internal server error" } };
+//   }
+// }
+
+// app.http("listUserDocuments", {
+//   methods: ["GET", "POST"],
+//   authLevel: "anonymous",
+//   handler: listUserDocuments
+// });
+
+// /api/src/functions/listUserDocuments.ts
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getServiceClient, normalizePath, DEFAULT_CONTAINER } from "../shared/storage";
 
@@ -137,11 +241,9 @@ type UserDoc = {
 
 /** Read userId from query or JSON body (POST/PUT/PATCH) safely. */
 async function readUserId(req: HttpRequest): Promise<string | null> {
-  // Prefer query (?userId=...)
   const q = req.query.get("userId");
   if (q && q.trim()) return q.trim();
 
-  // Only parse JSON for methods that typically carry a body
   const method = (req.method || "GET").toUpperCase();
   if (!["POST", "PUT", "PATCH"].includes(method)) return null;
 
@@ -149,13 +251,28 @@ async function readUserId(req: HttpRequest): Promise<string | null> {
   if (!ct.includes("application/json")) return null;
 
   try {
-    // Resolve Promise<unknown>, then narrow to the shape we need
     const body = (await req.json()) as { userId?: string } | null;
     const uid = (body?.userId ?? "").trim();
     return uid || null;
   } catch {
     return null;
   }
+}
+
+/** Safe file name extraction (handles spaces and simple encoding). */
+function fileNameFromPath(path: string): string {
+  const leaf = path.split("/").filter(Boolean).pop() || "";
+  try {
+    return decodeURIComponent(leaf);
+  } catch {
+    return leaf;
+  }
+}
+
+/** Given "foo.pdf.highlights.json" -> "foo.pdf" */
+function fileNameFromHighlights(path: string): string {
+  const leaf = fileNameFromPath(path);
+  return leaf.replace(/\.highlights\.json$/i, "");
 }
 
 export async function listUserDocuments(req: HttpRequest, ctx: InvocationContext): Promise<HttpResponseInit> {
@@ -165,53 +282,67 @@ export async function listUserDocuments(req: HttpRequest, ctx: InvocationContext
       return { status: 400, jsonBody: { error: "userId is required (?userId=... or JSON {userId})" } };
     }
 
+    // Optional: allow filtering to a single project via query (?projectId=DevTesting)
+    const filterProjectId = (req.query.get("projectId") || "").trim() || null;
+
     const service = getServiceClient();
     const containerName = DEFAULT_CONTAINER || "files";
     const container = service.getContainerClient(containerName);
 
-    const prefix = normalizePath(`${userId}/`);
+    // user prefix: e.g. "anonymous/"
+    const userPrefix = normalizePath(`${userId}/`);
+
     const docs: UserDoc[] = [];
 
     // Iterate project "folders" under userId/
-    for await (const item of container.listBlobsByHierarchy("/", { prefix })) {
-      if (item.kind !== "prefix") continue;
+    for await (const item of container.listBlobsByHierarchy("/", { prefix: userPrefix })) {
+      if (item.kind !== "prefix") continue; // skip blobs; only care about sub-prefixes (projects)
 
-      const projectPrefix = item.name;                     // e.g. "user123/<projectId>/"
+      const projectPrefix = item.name; // e.g. "anonymous/DevTesting/"
       const parts = projectPrefix.split("/").filter(Boolean);
-      const projectId = parts[1];                          // ["user123","<projectId>"]
+      const projectId = parts[1];      // ["anonymous","DevTesting"]
 
-      let originalPath: string | undefined;
-      let workingPath: string | undefined;
-      let highlightsPath: string | undefined;
-      let fileName: string | undefined;
+      // If request filters to a specific project, skip others.
+      if (filterProjectId && projectId !== filterProjectId) continue;
 
-      // Find original PDF (take first match)
+      // ✅ Build a map keyed by fileName so we return ONE entry per file
+      const perFile = new Map<string, UserDoc>();
+
+      // ---- Scan ORIGINAL PDFs (list all; do NOT break after first) ----
       for await (const blob of container.listBlobsFlat({ prefix: projectPrefix + "original/" })) {
-        if (blob.name.toLowerCase().endsWith(".pdf")) {
-          originalPath = blob.name;
-          fileName = blob.name.split("/").pop();
-          break;
-        }
+        const lower = blob.name.toLowerCase();
+        if (!lower.endsWith(".pdf")) continue;
+
+        const fileName = fileNameFromPath(blob.name);
+        const entry = perFile.get(fileName) ?? { projectId, fileName };
+        entry.originalPath = blob.name; // keep raw blob path; frontend provides container separately
+        perFile.set(fileName, entry);
       }
 
-      // Find working PDF + highlights JSON
+      // ---- Scan WORKING PDFs + HIGHLIGHTS (pair by file name) ----
       for await (const blob of container.listBlobsFlat({ prefix: projectPrefix + "working/" })) {
         const lower = blob.name.toLowerCase();
+
         if (lower.endsWith(".highlights.json")) {
-          highlightsPath = blob.name;
+          // highlights are named "<file>.pdf.highlights.json" -> base file = "<file>.pdf"
+          const basePdfName = fileNameFromHighlights(blob.name);
+          if (!basePdfName) continue;
+
+          const entry = perFile.get(basePdfName) ?? { projectId, fileName: basePdfName };
+          entry.highlightsPath = blob.name;
+          perFile.set(basePdfName, entry);
         } else if (lower.endsWith(".pdf")) {
-          workingPath = blob.name;
-          if (!fileName) fileName = blob.name.split("/").pop();
+          const fileName = fileNameFromPath(blob.name);
+          const entry = perFile.get(fileName) ?? { projectId, fileName };
+          entry.workingPath = blob.name;
+          perFile.set(fileName, entry);
         }
       }
 
-      docs.push({
-        projectId,
-        fileName: fileName ?? "document.pdf",
-        originalPath,
-        workingPath,
-        highlightsPath
-      });
+      // Push all files found for this project
+      // (you may sort for stable ordering)
+      const sorted = Array.from(perFile.values()).sort((a, b) => a.fileName.localeCompare(b.fileName));
+      docs.push(...sorted);
     }
 
     return { jsonBody: { documents: docs } };
