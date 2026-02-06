@@ -2140,6 +2140,47 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
         }}
       >
 
+      {/* UPLOAD FAB */}
+      <div
+        style={{
+          position: "absolute",
+          right: 16,
+          bottom: 88, // 56px + spacing above the download FAB
+          zIndex: 4000
+        }}
+      >
+        <button
+          onClick={() => document.getElementById("floating-upload-input")?.click()}
+          title="Upload PDF(s)"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "white",
+            color: "#0078d4",
+            border: "2px solid #0078d4",
+            fontSize: 24,
+            cursor: "pointer",
+            boxShadow: "0 6px 12px rgba(0,0,0,0.25)"
+          }}
+        >
+          ⬆
+        </button>
+
+        <input
+          id="floating-upload-input"
+          type="file"
+          accept="application/pdf"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            files.forEach(file => handlePdfUpload(file));
+            e.target.value = "";
+          }}
+        />
+      </div>
+
       {/* Floating Action Button + Menu - generate final redactions + download pdfs */}
       <div style={{ position: "absolute", right: 16, bottom: 16, zIndex: 4000 }}>
         <div style={{ position: "relative" }}>

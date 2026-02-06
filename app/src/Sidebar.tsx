@@ -1838,7 +1838,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Upload */}
-      <div
+      {/* <div
         style={{
           padding: ".5rem",
           borderBottom: "1px solid #eee",
@@ -1862,7 +1862,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             e.currentTarget.value = "";
           }}
         />
-      </div>
+      </div> */}
 
       {/* Documents */}
       <div style={{ borderBottom: "1px solid #eee" }}>
