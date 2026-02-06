@@ -653,6 +653,8 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
           // activeMap[projectId] = all.filter(h => activeIds.includes(h.id));
           highlightsMap[pdfId] = all;
           activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
+          console.log("Highlight keys:", Object.keys(highlightsMap));
+          console.log("Active keys:", Object.keys(activeMap));
 
           uploaded.push({
             id: pdfId,
@@ -1917,6 +1919,7 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
   console.log("allHighlights keys:", Object.keys(allHighlights));
   console.log("docHighlights keys:", Object.keys(docHighlights));
   console.log("currentPdfId:", currentPdfId);
+  
 
 
   /* =========================
