@@ -1122,9 +1122,9 @@ export default function ProjectHome({
           isDarkOverlay: false,
           styles: { 
             main: { 
-              width: "1000px",        // ← FORCE width
-              maxWidth: "1000px",     // ← prevent shrink
-              minWidth: "900px",
+              width: "1500px",        // ← FORCE width
+              maxWidth: "1600px",     // ← prevent shrink
+              minWidth: "1500px",
               padding: "24px"
             } 
           }   // NEW WIDTH
