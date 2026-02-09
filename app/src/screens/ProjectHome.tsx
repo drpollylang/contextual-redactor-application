@@ -573,6 +573,11 @@ export default function ProjectHome({
   const [isUploading, setIsUploading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  
+  // Strongly typed guard: never navigate with undefined
+  const openWorkspace = (projectId: string) => navigate(`/project/${projectId}`);
+
+
   /** Load all user projects */
   useEffect(() => {
     (async () => {
@@ -952,7 +957,8 @@ export default function ProjectHome({
           <DefaultButton
             text="View in workspace"
             iconProps={{ iconName: "NavigateForward" }}
-            onClick={() => navigate(`/project/${selectedProject?.id}`)}
+            // onClick={() => navigate(`/project/${selectedProject?.id}`)}
+            onClick={() => openWorkspace(selectedProject!.id) }
           />
         ),
       },
@@ -1344,7 +1350,7 @@ export default function ProjectHome({
         {/* 
         </DialogFooter>
       </Dialog> */}
-      <Panel
+      {/* <Panel
         isOpen={isDetailsOpen}
         onDismiss={() => setIsDetailsOpen(false)}
         type={PanelType.custom}
@@ -1359,7 +1365,33 @@ export default function ProjectHome({
         }}
         headerText={selectedProject?.name}
         closeButtonAriaLabel="Close"
-      />
+      /> */}
+      <Panel
+        isOpen={isDetailsOpen && !!selectedProject}
+        onDismiss={() => {
+          setIsDetailsOpen(false);
+          setSelectedProject(null);
+        }}
+        headerText={selectedProject?.name ?? ""}
+        closeButtonAriaLabel="Close"
+        type={PanelType.custom}
+        customWidth="1000px"
+        isLightDismiss
+        styles={{
+          main: {
+            borderRadius: "12px 0 0 12px",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.28)",
+            animation: "fadeInPanel 220ms ease",
+          },
+          header: {
+            // keep header compact & aligned
+            padding: "12px 24px",
+          },
+          content: {
+            padding: 0, // we’ll pad our own inner wrapper for full edge control
+          },
+        }}
+      >
 
       {/* Panel Content */}
       <div style={{ padding: "16px 24px 32px 24px" }}>
@@ -1390,7 +1422,8 @@ export default function ProjectHome({
             <PrimaryButton
               iconProps={{ iconName: "OpenFolderHorizontal" }}
               text="Open Project Workspace"
-              onClick={() => navigate(`/project/${selectedProject?.id}`)}
+              // onClick={() => navigate(`/project/${selectedProject?.id}`)}
+              onClick={() => selectedProject && openWorkspace(selectedProject.id) }
               style={{ marginBottom: 20 }}
             />
 
@@ -1470,6 +1503,7 @@ export default function ProjectHome({
           onClick={() => openDeleteDialog(selectedProject!)}
         />
       </div>
+      </Panel>
     </div>
   );
 }
