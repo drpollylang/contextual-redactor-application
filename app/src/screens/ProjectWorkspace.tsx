@@ -11,7 +11,8 @@ import Toolbar from "../Toolbar";
 import Sidebar from "../Sidebar";
 import FiltersPage, { HighlightFilters as FiltersHighlightFilters } from "./FiltersPage";
 // import SettingsPage, { HighlightFilters, STATIC_AI_RULES } from "./SettingsPage";
-import SettingsPage, { STATIC_AI_RULES } from "./SettingsPage";
+// import SettingsPage, { STATIC_AI_RULES } from "./SettingsPage";
+import SettingsPage from "./SettingsPage";
 import HistoryTimeline from "./HistoryTimeline";
 import { applyAiRedactionsPlugin } from "../plugins/applyAiRedactionsPlugin";
 import { buildPdfId } from "../helpers/utils"
@@ -48,6 +49,13 @@ import { listUserDocuments, getDownloadSas } from "../lib/apiClient";
 
 interface ProjectWorkspaceProps {
   userId: string;
+  
+  aiRules: string[];
+  setAiRules: React.Dispatch<React.SetStateAction<string[]>>;
+
+  userInstructions: string;
+  setUserInstructions: React.Dispatch<React.SetStateAction<string>>;
+
 }
 
 
@@ -127,7 +135,7 @@ export function redactedName(originalName: string) {
    Component
    ========================= */
 
-export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) { 
+export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInstructions, setUserInstructions }: ProjectWorkspaceProps) { 
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>(); // projectId is now dynamic for all uploads/snapshots/final PDFs
 
@@ -145,10 +153,10 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
 
   // Settings page
   const [showSettings, setShowSettings] = useState(false);
-  const [userInstructions, setUserInstructions] = useState<string>("");
-  const [aiRules, setAiRules] = useState<string[]>(
-    STATIC_AI_RULES.map(r => r.description) // ⬅ ALL selected by default
-  );
+  // const [userInstructions, setUserInstructions] = useState<string>("");
+  // const [aiRules, setAiRules] = useState<string[]>(
+  //   STATIC_AI_RULES.map(r => r.description) // ⬅ ALL selected by default
+  // );
 
   // Filters Page
   const [showFilters, setShowFilters] = useState(false);

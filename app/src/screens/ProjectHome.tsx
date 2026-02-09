@@ -473,12 +473,14 @@ import {
   Dropdown,
 } from "@fluentui/react";
 // import { DropZone } from "@fluentui/react-components";
-import { TabList, Tab } from "@fluentui/react-components";
+// import { TabList, Tab } from "@fluentui/react-components";
 import { Search20Regular } from "@fluentui/react-icons";
-import { Input, Card, CardHeader, CardPreview } from "@fluentui/react-components";
+import { Input } from "@fluentui/react-components";
+// import { Card, CardHeader, CardPreview } from "@fluentui/react-components";
 import { useNavigate } from "react-router-dom";
 import { ProjectRecord } from "../helpers/projectHelpers";
 import { removeDocument, downloadDocument } from "../helpers/documentHelpers";
+import { startAiRedactionForProject } from "../helpers/aiRedactionHelpers";
 import Toast from "../components/Toast";
 import JSZip from "jszip";
 
@@ -524,6 +526,13 @@ interface HomePageProps {
   createProject: (userId: string, name: string) => Promise<ProjectRecord | null>;
   deleteProject: (userId: string, projectId: string) => Promise<void>;
 
+  
+  aiRules: string[];
+  setAiRules: React.Dispatch<React.SetStateAction<string[]>>;
+
+  userInstructions: string;
+  setUserInstructions: React.Dispatch<React.SetStateAction<string>>;
+
   /** New helpers you’ll wire up to your backend */
   loadProjectSummary: (
     userId: string,
@@ -549,6 +558,10 @@ export default function ProjectHome({
   loadProjectSummary,
   uploadDocuments,
   downloadAll,
+  aiRules,
+  userInstructions,
+  setAiRules,
+  setUserInstructions
 }: HomePageProps) {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -560,6 +573,9 @@ export default function ProjectHome({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<"name" | "date">("name");
+
+  const [isAiBatchRunning, setIsAiBatchRunning] = useState(false);
+  const [aiBatchStatus, setAiBatchStatus] = useState("");
 
   // Toast
   const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
@@ -588,6 +604,11 @@ export default function ProjectHome({
   // Strongly typed guard: never navigate with undefined
   const openWorkspace = (projectId: string) => navigate(`/project/${projectId}`);
 
+  // Sync wrapper so Fluent UI menu callbacks don't return Promises
+  const menuAsync = (fn: () => Promise<void>) => () => {
+    fn();      // fire & forget
+    return;    // MUST return void (not Promise, not null)
+  };
 
   /** Load all user projects */
   useEffect(() => {
@@ -1206,74 +1227,74 @@ export default function ProjectHome({
       ) : (
         <div className={classes.grid} role="list">
           {filteredProjects.map((proj) => (
-            <Card
-              onClick={() => openProjectDetails(proj)}
-              style={{
-                cursor: "pointer",
-                animation: "fadeInUp 260ms ease"
-              }}
-            >
-              <CardPreview>
-                <div
-                  style={{
-                    height: 160,
-                    background: colorForProject(proj.name),
-                    borderRadius: 8,
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    fontSize: 52
-                  }}
-                >
-                  📁
-                </div>
-              </CardPreview>
-
-              <CardHeader
-                header={<span style={{ fontWeight: 600 }}>{proj.name}</span>}
-              />
-            </Card>
-             )
-           )
-           }
-         </div>
-      )}
-            {/* // <div
-            //   key={proj.id}
-            //   className={classes.card}
-            //   role="listitem"
-            //   tabIndex={0}
-            //   aria-label={`Project ${proj.name}`}
+            // <Card
             //   onClick={() => openProjectDetails(proj)}
-            //   onKeyDown={(e) => {
-            //     if (e.key === "Enter" || e.key === " ") {
-            //       e.preventDefault();
-            //       openProjectDetails(proj);
-            //     }
-            //   }}
             //   style={{
-            //       width: 240,
-            //       height: 240,
-            //       background: "white",
-            //       borderRadius: 16,
-            //       padding: 20,
-            //       boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-            //       transition: "transform 0.15s ease, box-shadow 0.15s ease",
-            //       cursor: "pointer",
-            //       display: "flex",
-            //       flexDirection: "column",
-            //       justifyContent: "space-between",
-            //     }}
+            //     cursor: "pointer",
+            //     animation: "fadeInUp 260ms ease"
+            //   }}
+            // >
+            //   <CardPreview>
+            //     <div
+            //       style={{
+            //         height: 160,
+            //         background: colorForProject(proj.name),
+            //         borderRadius: 8,
+            //         display: "flex",
+            //         justifyContent: "center",
+            //         alignItems: "center",
+            //         fontSize: 52
+            //       }}
+            //     >
+            //       📁
+            //     </div>
+            //   </CardPreview>
+
+            //   <CardHeader
+            //     header={<span style={{ fontWeight: 600 }}>{proj.name}</span>}
+            //   />
+            // </Card>
+      //        )
+      //      )
+      //      }
+      //    </div>
+      // )}
+            <div
+              key={proj.id}
+              className={classes.card}
+              role="listitem"
+              tabIndex={0}
+              aria-label={`Project ${proj.name}`}
+              onClick={() => openProjectDetails(proj)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openProjectDetails(proj);
+                }
+              }}
+              style={{
+                  width: 240,
+                  height: 240,
+                  background: "white",
+                  borderRadius: 16,
+                  padding: 20,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
                 
-            //     onMouseEnter={(e) => {
-            //       e.currentTarget.style.transform = "scale(1.06)";
-            //       e.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
-            //     }}
-            //     onMouseLeave={(e) => {
-            //       e.currentTarget.style.transform = "scale(1)";
-            //       e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)";
-            //     }}
-            // > */}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.06)";
+                  e.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)";
+                }}
+            >
               {/* Three-dot menu (does not trigger card click) */}
               {/* <IconButton
                 iconProps={{ iconName: "MoreVertical" }}
@@ -1285,32 +1306,36 @@ export default function ProjectHome({
               /> */}
 
               {/* Project Thumbnail / Icon */}
-              {/* // <div 
-              //   className={classes.thumbnail}
-              //   style={{
-              //       flexGrow: 1,
-              //       background: colorForProject(proj.name),
-              //       borderRadius: 12,
-              //       display: "flex",
-              //       alignItems: "center",
-              //       justifyContent: "center",
-              //       fontSize: 50,
-              //       color: "white",
-              //       textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-              //     }}
-              // >
-              //   📁
-              // </div> */}
+              <div 
+                className={classes.thumbnail}
+                style={{
+                    flexGrow: 1,
+                    background: colorForProject(proj.name),
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 50,
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                  }}
+              >
+                📁
+              </div> 
 
               {/* Project name */}
-        {/* //       <div 
-        //         className={classes.cardTitle} 
-        //         title={proj.name}
-        //       >
-        //         {proj.name}
-        //       </div>
-        //     </div>
-           */}
+              <div 
+                className={classes.cardTitle} 
+                title={proj.name}
+              >
+                {proj.name}
+              </div>
+            </div>
+            )
+           )
+           }
+         </div>
+      )}
 
       {/* --- Delete confirmation dialog --- */}
       <Dialog
@@ -1590,11 +1615,11 @@ export default function ProjectHome({
         }}
       >
 
-      <TabList defaultSelectedValue="docs">
+      {/* <TabList defaultSelectedValue="docs">
         <Tab value="docs">Documents</Tab>
         <Tab value="upload">Upload</Tab>
         <Tab value="stats">Stats</Tab>
-      </TabList>
+      </TabList> */}
 
       {/* Panel Content */}
       <div style={{ padding: "16px 24px 32px 24px" }}>
@@ -1644,6 +1669,54 @@ export default function ProjectHome({
               columns={columns}
               selectionMode={0}
               styles={{ root: { width: "100%" } }}
+            />
+
+            <DefaultButton
+              text={
+                isAiBatchRunning
+                  ? aiBatchStatus || "Generating AI Suggestions…"
+                  : "Generate AI Suggestions for ALL Documents"
+              }
+              iconProps={{ iconName: "Robot" }}
+              disabled={!selectedProject || isAiBatchRunning}
+              styles={{
+                root: { background: "#0078d4", color: "white", border: "none" },
+                rootHovered: { background: "#106ebe" }
+              }}
+              onClick={menuAsync(async () => {
+                if (!selectedProject || !projectSummary) return;
+
+                const docNames = projectSummary.documents.map((d) => d.name);
+
+                setIsAiBatchRunning(true);
+
+                try {
+                  await startAiRedactionForProject({
+                    userId,
+                    projectId: selectedProject.id,
+                    documents: docNames,
+                    aiRules, // must be passed into ProjectHome
+                    userInstructions, // also must be passed in
+                    onProgress: ({ fileName, index, total }) => {
+                      setAiBatchStatus(`Starting AI suggestions for ${fileName} (${index}/${total})…`);
+                    }
+                  });
+
+                  setAiBatchStatus("");
+                  setToast({
+                    message: "AI redaction suggestions started for all documents.",
+                    type: MessageBarType.success
+                  });
+                } catch (err) {
+                  console.error(err);
+                  setToast({
+                    message: "Failed to start AI suggestions.",
+                    type: MessageBarType.error
+                  });
+                }
+
+                setIsAiBatchRunning(false);
+              })}
             />
 
             <DefaultButton
