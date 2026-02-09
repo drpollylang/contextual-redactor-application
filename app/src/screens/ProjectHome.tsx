@@ -657,6 +657,20 @@ export default function ProjectHome({
     [theme]
   );
 
+  const globalStyles = `
+    @keyframes fadeInScale {
+      0% { opacity: 0; transform: scale(0.92); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    `;
+
+    useEffect(() => {
+      const style = document.createElement("style");
+      style.innerHTML = globalStyles;
+      document.head.appendChild(style);
+      return () => style.remove();
+    }, []);
+
   /** Contextual menu per project (3-dot icon) */
   // const projectMenu = (proj: Project): IContextualMenuProps => ({
   //   items: [
@@ -858,11 +872,11 @@ export default function ProjectHome({
         isResizable: true,
         isMultiline: true,
         onRender: (item?: DocumentSummary) => (
-          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-            <span role="img" aria-label="document">
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
+            <span role="img" aria-label="document" style={{ fontSize: 20}}>
               📄
             </span>
-            <Text style={{ whiteSpace: "normal" }}>{item?.name}</Text>
+            <Text style={{ whiteSpace: "normal", fontWeight: 500 }}>{item?.name}</Text>
           </Stack>
         ),
       },
@@ -881,9 +895,34 @@ export default function ProjectHome({
               styles={{ root: { cursor: "default" } }}
               title="Redactions"
               ariaLabel="Redactions"
-            /> */}
+            /> */}            
+            <span
+              style={{
+                marginLeft: "auto",
+                background: item?.redactions ?? 0 > 0 ? "#d13438" : "#8a8886",
+                color: "white",
+                padding: "2px 8px",
+                borderRadius: 12,
+                fontSize: 13,
+                fontWeight: 600
+              }}
+            >
             <Text>{item?.redactions ?? 0}</Text>
+            </span>
           </Stack>
+        ),
+      },
+      {
+        key: "actions",
+        name: "",
+        minWidth: 140,
+        maxWidth: 180,
+        onRender: (item) => (
+          <DefaultButton
+            text="View in workspace"
+            iconProps={{ iconName: "NavigateForward" }}
+            onClick={() => navigate(`/project/${selectedProject?.id}`)}
+          />
         ),
       },
     ],
@@ -1125,23 +1164,32 @@ export default function ProjectHome({
               width: "1500px",        // ← FORCE width
               maxWidth: "1600px",     // ← prevent shrink
               minWidth: "1500px",
-              padding: "24px"
+              padding: "24px",
+              borderRadius: 12,                    // ← rounded corners
+              boxShadow: "0 12px 40px rgba(0,0,0,0.22)", // ← elegant shadow
+              animation: "fadeInScale 220ms ease",      // ← animation
+              position: "relative"
             } 
           }   // NEW WIDTH
         }}
       >
         {/* Top-right close button */}
         <IconButton
-          iconProps={{ iconName: "Cancel" }}
-          ariaLabel="Close"
+          iconProps={{ iconName: "ChromeClose" }}
+          ariaLabel="Close dialog"
           onClick={() => setIsDetailsOpen(false)}
           styles={{
             root: {
               position: "absolute",
-              top: 12,
-              right: 12,
-              zIndex: 10,
-              background: "transparent"
+              top: 10,
+              right: 10,
+              background: "transparent",
+              color: "#666",
+              zIndex: 10
+            },
+            rootHovered: {
+              background: "#f3f2f1",
+              color: "#333"
             }
           }}
         />
@@ -1149,7 +1197,7 @@ export default function ProjectHome({
             text="Open Project"
             iconProps={{ iconName: "OpenFolderHorizontal" }}
             onClick={() => navigate(`/project/${selectedProject?.id}`)}
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: 16, marginTop: 4 }}
           />
 
           
@@ -1172,6 +1220,12 @@ export default function ProjectHome({
                 items={projectSummary.documents}
                 columns={columns}
                 selectionMode={SelectionMode.none}
+                styles={{
+                  root: {
+                    width: "100%",
+                    overflowX: "visible"
+                  }
+                }}
                 compact
               />
             ) : (
