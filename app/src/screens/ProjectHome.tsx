@@ -959,6 +959,21 @@ export default function ProjectHome({
             iconProps={{ iconName: "NavigateForward" }}
             // onClick={() => navigate(`/project/${selectedProject?.id}`)}
             onClick={() => openWorkspace(selectedProject!.id) }
+            styles={{
+              root: {
+                border: "none",
+                boxShadow: "none",
+                background: "transparent",
+                paddingLeft: 0,
+              },
+              rootHovered: {
+                background: "transparent",
+                textDecoration: "underline",
+              },
+              rootPressed: {
+                background: "transparent",
+              }
+            }}
           />
         ),
       },
@@ -1444,7 +1459,7 @@ export default function ProjectHome({
             />
 
             <DefaultButton
-              text="Download redacted ZIP"
+              text="Download all redacted documents"
               iconProps={{ iconName: "Download" }}
               onClick={downloadAllRedacted}
               style={{ marginTop: 20 }}
