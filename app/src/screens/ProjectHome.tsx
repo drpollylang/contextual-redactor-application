@@ -469,9 +469,16 @@ import {
   Pivot,
   PivotItem,
   MessageBar,
+  // TextField,
+  Dropdown,
 } from "@fluentui/react";
+// import { DropZone } from "@fluentui/react-components";
+import { TabList, Tab } from "@fluentui/react-components";
+import { Search20Regular } from "@fluentui/react-icons";
+import { Input, Card, CardHeader, CardPreview } from "@fluentui/react-components";
 import { useNavigate } from "react-router-dom";
 import { ProjectRecord } from "../helpers/projectHelpers";
+import { removeDocument, downloadDocument } from "../helpers/documentHelpers";
 import Toast from "../components/Toast";
 import JSZip from "jszip";
 
@@ -494,6 +501,7 @@ import { loadPdfDocumentFromUrl, downloadBlob, redactedName } from "../screens/P
 interface Project {
   id: string;
   name: string;
+  createdAt?: string; // ISO string, optional if some records don’t have it
 }
 
 interface DocumentSummary {
@@ -550,6 +558,9 @@ export default function ProjectHome({
 
   const [projectDocumentsRaw, setProjectDocumentsRaw] = useState<any[]>([]);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState<"name" | "date">("name");
+
   // Toast
   const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
 
@@ -584,7 +595,11 @@ export default function ProjectHome({
       setLoading(true);
       try {
         const result = await loadProjects(userId);
-        setProjects(result);
+        setProjects(result.map(p => ({
+          id: p.id,
+          name: p.name,
+          createdAt: (p as any).createdAt ?? undefined          
+        })));
       } catch (err) {
         setToast({
           message: "Failed to load projects.",
@@ -710,6 +725,17 @@ export default function ProjectHome({
     const index = name.length % colors.length;
     return colors[index];
   }
+
+  // Filter and sort projects
+  const filteredProjects = projects
+    .filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (sortMode === "name") return a.name.localeCompare(b.name);
+      // sortMode === "date"
+      const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return db - da; // newest first
+    });
 
   /** Delete helpers */
   const openDeleteDialog = (proj: Project) => {
@@ -903,7 +929,7 @@ export default function ProjectHome({
         key: "col-doc",
         name: "Document",
         fieldName: "name",
-        minWidth: 400,
+        minWidth: 350,
         maxWidth: 700,
         isResizable: true,
         isMultiline: true,
@@ -948,39 +974,130 @@ export default function ProjectHome({
           </Stack>
         ),
       },
+      // {
+      //   key: "actions",
+      //   name: "",
+      //   minWidth: 140,
+      //   maxWidth: 180,
+      //   onRender: (item) => (
+      //     <DefaultButton
+      //       text="View in workspace"
+      //       iconProps={{ iconName: "NavigateForward" }}
+      //       // onClick={() => navigate(`/project/${selectedProject?.id}`)}
+      //       // onClick={() => openWorkspace(selectedProject!.id) }
+      //        onClick={() => {
+      //         console.log("Opening workspace for project:", selectedProject);
+      //         selectedProject && openWorkspace(selectedProject.id) 
+      //       }}
+      //       styles={{
+      //         root: {
+      //           border: "none",
+      //           boxShadow: "none",
+      //           background: "transparent",
+      //           paddingLeft: 0,
+      //         },
+      //         rootHovered: {
+      //           background: "transparent",
+      //           textDecoration: "underline",
+      //         },
+      //         rootPressed: {
+      //           background: "transparent",
+      //         }
+      //       }}
+      //     />
+      //   ),
+      // },  
       {
         key: "actions",
         name: "",
-        minWidth: 140,
-        maxWidth: 180,
-        onRender: (item) => (
-          <DefaultButton
-            text="View in workspace"
-            iconProps={{ iconName: "NavigateForward" }}
-            // onClick={() => navigate(`/project/${selectedProject?.id}`)}
-            // onClick={() => openWorkspace(selectedProject!.id) }
-             onClick={() => {
-              console.log("Opening workspace for project:", selectedProject);
-              selectedProject && openWorkspace(selectedProject.id) 
-            }}
-            styles={{
-              root: {
-                border: "none",
-                boxShadow: "none",
-                background: "transparent",
-                paddingLeft: 0,
-              },
-              rootHovered: {
-                background: "transparent",
-                textDecoration: "underline",
-              },
-              rootPressed: {
-                background: "transparent",
-              }
-            }}
+        minWidth: 80,
+        onRender: (doc) => (
+          <IconButton
+            iconProps={{ iconName: "MoreVertical" }}
+            menuProps={{
+              items: [
+                {
+                  key: "view",
+                  text: "Open in workspace",
+                  iconProps: { iconName: "OpenFile" },
+                  onClick: async () => selectedProject && openWorkspace(selectedProject.id)
+                },
+                // {
+                //   key: "download",
+                //   text: "Download",
+                //   iconProps: { iconName: "Download" },
+                //   onClick: () => downloadSingleDoc(doc)
+                // },
+                {
+                  key: "download",
+                  text: "Download (original)",
+                  iconProps: { iconName: "Download" },
+                  onClick: () => {
+                    (async () => {
+                      try {
+                        if (!selectedProject) return;
+                        downloadDocument(userId, selectedProject.id, doc.name)
+                      } catch (e) {
+                        console.error("Download failed: ", e);
+                      }
+                    })(); 
+                  }
+                },
+                {
+                  key: "downloadFinal",
+                  text: "Download final redacted",
+                  iconProps: { iconName: "Download" },
+                  onClick: () => {
+                    (async () => {
+                      try {
+                        if (!selectedProject) return;
+                        downloadDocument(userId, selectedProject.id, doc.name, "final")
+                      } catch (e) {
+                        console.error("Download failed: ", e);
+                      }
+                    })(); 
+                  }
+                },
+                {
+                  key: "downloadWorking",
+                  text: "Download working copy",
+                  iconProps: { iconName: "Download" },
+                  onClick: () => {
+                    (async () => {
+                      try {
+                        if (!selectedProject) return;
+                        downloadDocument(userId, selectedProject.id, doc.name, "working")
+                      } catch (e) {
+                        console.error("Download failed: ", e);
+                      }
+                    })(); 
+                  }
+                },
+                {
+                  key: "delete",
+                  text: "Delete",
+                  iconProps: { iconName: "Delete" },
+                    onClick: () => {
+                      (async () => {
+                        if (!selectedProject) return;
+                        await removeDocument(userId, selectedProject.id, doc.name);
+
+                        // Refresh project summary UI
+                        const summary = await loadProjectSummary(userId, selectedProject.id);
+                        setProjectSummary(summary);
+
+                        setToast({
+                          message: `Deleted ${doc.name}`,
+                          type: MessageBarType.warning,
+                        });
+                      })();
+                    } 
+                }
+              ]
+            }}    
           />
-        ),
-      },
+        )
+      }
     ],
     []
   );
@@ -1050,6 +1167,37 @@ export default function ProjectHome({
         </Stack>
       </Stack>
 
+      {/* Search and sort projects */}
+      {/* <TextField
+        placeholder="Search projects..."
+        onChange={(_, v) => setSearchQuery(v ?? "")}
+        styles={{ root: { width: 300, marginBottom: 20 } }}
+        iconProps={{ iconName: "Search" }}
+      /> */}
+
+      <Input
+        placeholder="Search projects"
+        contentBefore={<Search20Regular />}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        style={{ width: 300, marginBottom: 16 }}
+      />
+
+      <Dropdown
+        label="Sort by"
+        options={[
+          { key: "name", text: "Name" },
+          { key: "date", text: "Created Date" },
+        ]}
+        selectedKey={sortMode}
+        onChange={(_, option) => {
+          if (!option) return;
+          setSortMode(option.key as "name" | "date")
+        }}
+        styles={{ root: { width: 200, marginBottom: 20 } }}
+      />
+
+      
+
       {/* Project Grid */}
       {projects.length === 0 && !loading ? (
         <div className={classes.emptyState}>
@@ -1057,43 +1205,75 @@ export default function ProjectHome({
         </div>
       ) : (
         <div className={classes.grid} role="list">
-          {projects.map((proj) => (
-            <div
-              key={proj.id}
-              className={classes.card}
-              role="listitem"
-              tabIndex={0}
-              aria-label={`Project ${proj.name}`}
+          {filteredProjects.map((proj) => (
+            <Card
               onClick={() => openProjectDetails(proj)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openProjectDetails(proj);
-                }
-              }}
               style={{
-                  width: 240,
-                  height: 240,
-                  background: "white",
-                  borderRadius: 16,
-                  padding: 20,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                }}
-                
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.06)";
-                  e.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)";
-                }}
+                cursor: "pointer",
+                animation: "fadeInUp 260ms ease"
+              }}
             >
+              <CardPreview>
+                <div
+                  style={{
+                    height: 160,
+                    background: colorForProject(proj.name),
+                    borderRadius: 8,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    fontSize: 52
+                  }}
+                >
+                  📁
+                </div>
+              </CardPreview>
+
+              <CardHeader
+                header={<span style={{ fontWeight: 600 }}>{proj.name}</span>}
+              />
+            </Card>
+             )
+           )
+           }
+         </div>
+      )}
+            {/* // <div
+            //   key={proj.id}
+            //   className={classes.card}
+            //   role="listitem"
+            //   tabIndex={0}
+            //   aria-label={`Project ${proj.name}`}
+            //   onClick={() => openProjectDetails(proj)}
+            //   onKeyDown={(e) => {
+            //     if (e.key === "Enter" || e.key === " ") {
+            //       e.preventDefault();
+            //       openProjectDetails(proj);
+            //     }
+            //   }}
+            //   style={{
+            //       width: 240,
+            //       height: 240,
+            //       background: "white",
+            //       borderRadius: 16,
+            //       padding: 20,
+            //       boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+            //       transition: "transform 0.15s ease, box-shadow 0.15s ease",
+            //       cursor: "pointer",
+            //       display: "flex",
+            //       flexDirection: "column",
+            //       justifyContent: "space-between",
+            //     }}
+                
+            //     onMouseEnter={(e) => {
+            //       e.currentTarget.style.transform = "scale(1.06)";
+            //       e.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
+            //     }}
+            //     onMouseLeave={(e) => {
+            //       e.currentTarget.style.transform = "scale(1)";
+            //       e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)";
+            //     }}
+            // > */}
               {/* Three-dot menu (does not trigger card click) */}
               {/* <IconButton
                 iconProps={{ iconName: "MoreVertical" }}
@@ -1105,34 +1285,32 @@ export default function ProjectHome({
               /> */}
 
               {/* Project Thumbnail / Icon */}
-              <div 
-                className={classes.thumbnail}
-                style={{
-                    flexGrow: 1,
-                    background: colorForProject(proj.name),
-                    borderRadius: 12,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 50,
-                    color: "white",
-                    textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                  }}
-              >
-                📁
-              </div>
+              {/* // <div 
+              //   className={classes.thumbnail}
+              //   style={{
+              //       flexGrow: 1,
+              //       background: colorForProject(proj.name),
+              //       borderRadius: 12,
+              //       display: "flex",
+              //       alignItems: "center",
+              //       justifyContent: "center",
+              //       fontSize: 50,
+              //       color: "white",
+              //       textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+              //     }}
+              // >
+              //   📁
+              // </div> */}
 
               {/* Project name */}
-              <div 
-                className={classes.cardTitle} 
-                title={proj.name}
-              >
-                {proj.name}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* //       <div 
+        //         className={classes.cardTitle} 
+        //         title={proj.name}
+        //       >
+        //         {proj.name}
+        //       </div>
+        //     </div>
+           */}
 
       {/* --- Delete confirmation dialog --- */}
       <Dialog
@@ -1411,6 +1589,12 @@ export default function ProjectHome({
           },
         }}
       >
+
+      <TabList defaultSelectedValue="docs">
+        <Tab value="docs">Documents</Tab>
+        <Tab value="upload">Upload</Tab>
+        <Tab value="stats">Stats</Tab>
+      </TabList>
 
       {/* Panel Content */}
       <div style={{ padding: "16px 24px 32px 24px" }}>

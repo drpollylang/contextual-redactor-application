@@ -15,6 +15,7 @@ import SettingsPage, { STATIC_AI_RULES } from "./SettingsPage";
 import HistoryTimeline from "./HistoryTimeline";
 import { applyAiRedactionsPlugin } from "../plugins/applyAiRedactionsPlugin";
 import { buildPdfId } from "../helpers/utils"
+import { removeDocument } from "../helpers/documentHelpers";
 import { buildRedactedBlobFromPdfjsDoc, groupActiveRectsByPage } from "../lib/pdfRedactor";
 import { saveFinalPdfToBlob } from "../lib/blobPersist";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
@@ -1851,18 +1852,27 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
   );
 
   
-  const removePdf = async (id: string) => {
-    // remove from IndexedDB
-    await db.pdfs.delete(id);
+  // const removePdf = async (id: string) => {
+  //   // remove from IndexedDB
+  //   await db.pdfs.delete(id);
 
-    // remove from state
-    setUploadedPdfs((prev) => prev.filter((p) => p.id !== id));
+  //   // remove from IndexedDB
 
-    // clear selection if needed
-    if (currentPdfId === id) {
-      setCurrentPdfId(null);
-    }
-  };
+  //   // remove from state
+  //   setUploadedPdfs((prev) => prev.filter((p) => p.id !== id));
+
+  //   // clear selection if needed
+  //   if (currentPdfId === id) {
+  //     setCurrentPdfId(null);
+  //   }
+  // };
+  
+  async function handleDeleteDoc(fileName: string) {
+    await removeDocument(userId, projectId!, fileName);
+
+    // update Workspace UI
+    setUploadedPdfs(prev => prev.filter(p => p.name !== fileName));
+  }
 
   /* Document de-duplication to pass to Sidebar */
   const findDuplicateDocuments = async () => {
@@ -2136,7 +2146,7 @@ export default function ProjectWorkspace({ userId }: ProjectWorkspaceProps) {
         highlightFilters={highlightFilters}
         toggleHighlightCheckbox={toggleHighlightCheckbox}
         handlePdfUpload={handlePdfUpload}
-        removePdf={removePdf}
+        removePdf={handleDeleteDoc}
         onFindDuplicates={findDuplicateDocuments} 
         onApplyAllGroup={onApplyAllGroup}
         onRemoveHighlight={onRemoveHighlight}
