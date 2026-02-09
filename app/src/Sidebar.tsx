@@ -1798,17 +1798,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="sidebar" style={{ width: "25vw", maxWidth: "500px" }}>
+    <div className="sidebar" style={{ width: "25vw", maxWidth: "500px", paddingTop: "5px" }}>
 
       {/* Add some padding at top of sidebar to leave room for Home icon/nav*/}
-      <div
+      {/* <div
         className="sidebar"
         style={{
           width: "25vw",
           maxWidth: "500px",
           paddingTop: "15px"  
         }}
-      ></div>
+      ></div> */}
       {/* Header */}
       {/* <div className="description" style={{ padding: "1rem" }}>
         <h2 style={{ marginBottom: "1rem" }}>Somerset Council Redaction Tool</h2>
