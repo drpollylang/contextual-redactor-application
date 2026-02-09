@@ -113,7 +113,334 @@
 // }
 
 // v2
-import React, { useEffect, useState } from "react";
+// import React, { useEffect, useState } from "react";
+// import {
+//   Stack,
+//   DefaultButton,
+//   IconButton,
+//   Persona,
+//   PersonaSize,
+//   Dialog,
+//   DialogType,
+//   DialogFooter,
+//   PrimaryButton,
+//   DefaultButton as SecondaryButton,
+//   Spinner,
+//   SpinnerSize,
+//   // ContextualMenu,
+//   IContextualMenuProps,
+//   // MessageBar,
+//   MessageBarType
+// } from "@fluentui/react";
+
+// import { useNavigate } from "react-router-dom";
+// import {ProjectRecord } from "../helpers/projectHelpers";
+// import Toast from "../components/Toast";
+
+// interface Project {
+//   id: string;
+//   name: string;
+// }
+
+// interface HomePageProps {
+//   userId: string;
+//   userName: string;
+//   loadProjects: (userId: string) => Promise<ProjectRecord[]>;
+//   createProject: (userId: string, name: string) => Promise<ProjectRecord | null>;
+//   deleteProject: (userId: string, projectId: string) => Promise<void>;
+// }
+
+// // export default function HomePage({ userId, loadProjects, createProject, deleteProject }) {
+// export default function ProjectHome({
+//   userId,
+//   userName,
+//   loadProjects,
+//   createProject,
+//   deleteProject
+// }: HomePageProps) {
+
+//   const [projects, setProjects] = useState<Project[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+//   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+//   const navigate = useNavigate();
+
+//   // Dialog state
+//   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+//   const [newProjectName, setNewProjectName] = useState("");
+
+//   // Toast state
+//   const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
+
+//   // Load projects
+//   useEffect(() => {
+//     (async () => {
+//       setLoading(true);
+//       const result = await loadProjects(userId); // external function you pass in
+//       setProjects(result);
+//       setLoading(false);
+//     })();
+//   }, [userId]);
+
+  
+//   // const handleCreateProject = () => createProject(userId);
+//   const handleDeleteProject = (id: string) => deleteProject(userId, id);
+
+//   const openDeleteDialog = (proj: Project) => {
+//     setSelectedProject(proj);
+//     setConfirmDeleteOpen(true);
+//   };
+
+//   const confirmDelete = async () => {
+//     if (selectedProject) {
+//       // await deleteProject(selectedProject.id);
+//       await handleDeleteProject(selectedProject.id);
+//       setProjects(prev => prev.filter(p => p.id !== selectedProject.id));
+//       setToast({
+//             message: `Deleted project "${selectedProject.name}".`,
+//             type: MessageBarType.warning,
+//           });
+//     }
+//     setConfirmDeleteOpen(false);
+//     setSelectedProject(null);
+//   };
+
+//   const projectMenu = (proj: Project): IContextualMenuProps => ({
+//     items: [
+//       {
+//         key: "open",
+//         text: "Open project",
+//         iconProps: { iconName: "OpenFolderHorizontal" },
+//         onClick: async () => navigate(`/project/${proj.id}`)
+//       },
+//       {
+//         key: "delete",
+//         text: "Delete project",
+//         iconProps: { iconName: "Delete" },
+//         onClick: () => openDeleteDialog(proj)
+//       }
+//     ]
+//   });
+
+//   return (
+//     <div style={{ height: "100vh", padding: "20px", position: "relative" }}>
+
+//       {toast && (
+//         <Toast
+//           message={toast.message}
+//           type={toast.type}
+//           onDismiss={() => setToast(null)}
+//         />
+//       )}
+
+//       {/* Spinner overlay */}
+//       {loading && (
+//         <div style={{
+//           position: "absolute",
+//           top: 0, left: 0,
+//           width: "100%", height: "100%",
+//           display: "flex",
+//           justifyContent: "center",
+//           alignItems: "center",
+//           background: "rgba(255,255,255,0.7)",
+//           zIndex: 999
+//         }}>
+//           <Spinner size={SpinnerSize.large} label="Loading your projects…" />
+//         </div>
+//       )}
+
+//       {/* Top bar */}
+//       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 30 } }}>
+        
+//         {/* Left spacer: keeps "Create Project" centered */}
+//         <div style={{ width: 100 }}></div>
+
+//         {/* Centered Create Project */}
+//         <DefaultButton
+//           text="Create New Project"
+//           iconProps={{ iconName: "Add" }}
+//           // onClick={handleCreateProject}
+//           onClick={() => setIsCreateDialogOpen(true)}
+//           styles={{ root: { height: 40, fontSize: 16, padding: "0 20px" } }}
+//         />
+
+//         {/* User + settings */}
+//         <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign="center">
+          
+//           <IconButton
+//             iconProps={{ iconName: "Settings" }}
+//             title="Settings"
+//             ariaLabel="Settings"
+//             onClick={() => navigate("/settings")}
+//           />
+
+//           <Persona
+//             text={userName}
+//             size={PersonaSize.size32}
+//             hidePersonaDetails={true}
+//             imageInitials={userName?.charAt(0)?.toUpperCase()}
+//           />
+//         </Stack>
+//       </Stack>
+
+//       {/* Project Grid */}
+//       {projects.length === 0 && !loading ? (
+//         <div style={{
+//           textAlign: "center",
+//           marginTop: 100,
+//           opacity: 0.5,
+//           fontSize: 18
+//         }}>
+//           No projects yet. Create your first project to begin.
+//         </div>
+//       ) : (
+//         <div style={{
+//           display: "grid",
+//           gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+//           gap: "24px",
+//           padding: "10px"
+//         }}>
+//           {projects.map(proj => (
+//             <div key={proj.id}
+//               style={{
+//                 background: "white",
+//                 borderRadius: 8,
+//                 padding: 14,
+//                 boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+//                 position: "relative"
+//               }}
+//             >
+//               {/* Three-dot menu */}
+//               <IconButton
+//                 iconProps={{ iconName: "MoreVertical" }}
+//                 styles={{
+//                   root: {
+//                     position: "absolute",
+//                     top: 6, right: 6
+//                   }
+//                 }}
+//                 menuProps={projectMenu(proj)}
+//               />
+
+//               {/* Project Thumbnail / Icon */}
+//               <div style={{
+//                 width: "100%",
+//                 height: 110,
+//                 background: "#f3f2f1",
+//                 borderRadius: 6,
+//                 display: "flex",
+//                 justifyContent: "center",
+//                 alignItems: "center",
+//                 fontSize: 28,
+//                 color: "#605e5c"
+//               }}>
+//                 📁
+//               </div>
+
+//               {/* Project name */}
+//               <div style={{
+//                 marginTop: 10,
+//                 textAlign: "center",
+//                 fontSize: 15,
+//                 fontWeight: 500
+//               }}>
+//                 {proj.name}
+//               </div>
+//             </div>
+//           ))}
+//         </div>
+//       )}
+
+//       {/* Delete confirmation dialog */}
+//       <Dialog
+//         hidden={!confirmDeleteOpen}
+//         onDismiss={() => setConfirmDeleteOpen(false)}
+//         dialogContentProps={{
+//           type: DialogType.normal,
+//           title: "Delete Project?",
+//           subText:
+//             selectedProject ?
+//             `Are you sure you want to delete project "${selectedProject.name}"? This action cannot be undone.`: 
+//             "Are you sure you want to delete this project? This action cannot be undone.",
+//         }}
+//         modalProps={{ isBlocking: true }}
+//       >
+//         <DialogFooter>
+//           <PrimaryButton text="Delete" onClick={confirmDelete} />
+//           <SecondaryButton text="Cancel" onClick={() => setConfirmDeleteOpen(false)} />
+//         </DialogFooter>
+//       </Dialog>
+
+//       {/* Create project dialog */}
+//       <Dialog
+//         hidden={!isCreateDialogOpen}
+//         onDismiss={() => setIsCreateDialogOpen(false)}
+//         dialogContentProps={{
+//           type: DialogType.normal,
+//           title: "Create New Project",
+//           subText: "Enter a name for your new project.",
+//         }}
+//         modalProps={{
+//           isBlocking: false,
+//         }}
+//       >
+//         <input
+//           autoFocus
+//           value={newProjectName}
+//           onChange={(e) => setNewProjectName(e.target.value)}
+//           style={{
+//             width: "100%",
+//             padding: "8px",
+//             fontSize: 14,
+//             marginBottom: 10,
+//           }}
+//           placeholder="Project name"
+//         />
+
+//         <DialogFooter>
+//           <PrimaryButton
+//             text="Create Project"
+//             disabled={!newProjectName.trim()}
+//             onClick={async () => {
+//               const proj = await createProject(userId, newProjectName.trim());
+//               if (proj) {
+//                 setProjects((prev) => [...prev, proj]);
+
+//                 // Show success toast
+//                 setToast({
+//                   message: `Project "${proj.name}" created successfully.`,
+//                   type: MessageBarType.success,
+//                 });
+//               } else {
+//                 setToast({
+//                   message: "Failed to create project.",
+//                   type: MessageBarType.error,
+//                 });
+//               }
+
+//               setNewProjectName("");
+//               setIsCreateDialogOpen(false);
+//             }}
+//           />
+
+//           <DefaultButton
+//             text="Cancel"
+//             onClick={() => {
+//               setNewProjectName("");
+//               setIsCreateDialogOpen(false);
+//             }}
+//           />
+//         </DialogFooter>
+//       </Dialog>
+
+//     </div>
+//   );
+// }
+
+// v3
+// src/screens/ProjectHome.tsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Stack,
   DefaultButton,
@@ -127,105 +454,370 @@ import {
   DefaultButton as SecondaryButton,
   Spinner,
   SpinnerSize,
-  // ContextualMenu,
   IContextualMenuProps,
-  // MessageBar,
-  MessageBarType
+  MessageBarType,
+  Text,
+  DetailsList,
+  IColumn,
+  SelectionMode,
+  Separator,
+  useTheme,
+  mergeStyleSets,
+  TooltipHost,
 } from "@fluentui/react";
-
 import { useNavigate } from "react-router-dom";
-import {ProjectRecord } from "../helpers/projectHelpers";
+import { ProjectRecord } from "../helpers/projectHelpers";
 import Toast from "../components/Toast";
+
+/** --- Types --- */
 
 interface Project {
   id: string;
   name: string;
 }
 
+interface DocumentSummary {
+  id: string;
+  name: string;
+  redactions: number; // current redaction count
+}
+
+interface ProjectSummary {
+  project: Project;
+  documents: DocumentSummary[];
+}
+
 interface HomePageProps {
   userId: string;
   userName: string;
+
+  /** Existing functions you already have or can provide */
   loadProjects: (userId: string) => Promise<ProjectRecord[]>;
   createProject: (userId: string, name: string) => Promise<ProjectRecord | null>;
   deleteProject: (userId: string, projectId: string) => Promise<void>;
+
+  /** New helpers you’ll wire up to your backend */
+  loadProjectSummary: (
+    userId: string,
+    projectId: string
+  ) => Promise<ProjectSummary>;
+  uploadDocuments: (
+    userId: string,
+    projectId: string,
+    files: File[]
+  ) => Promise<void>;
+  downloadAll: (
+    userId: string,
+    projectId: string
+  ) => Promise<Blob | ArrayBuffer | void>; // Return a Blob for us to trigger a download
 }
 
-// export default function HomePage({ userId, loadProjects, createProject, deleteProject }) {
 export default function ProjectHome({
   userId,
   userName,
   loadProjects,
   createProject,
-  deleteProject
+  deleteProject,
+  loadProjectSummary,
+  uploadDocuments,
+  downloadAll,
 }: HomePageProps) {
+  const theme = useTheme();
+  const navigate = useNavigate();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-  const navigate = useNavigate();
+  // Toast
+  const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
 
-  // Dialog state
+  // Create project dialog
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
 
-  // Toast state
-  const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
+  // Delete confirmation dialog
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
 
-  // Load projects
+  // Project details dialog (open on card click)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectSummary, setProjectSummary] = useState<ProjectSummary | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  // Upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  /** Load all user projects */
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const result = await loadProjects(userId); // external function you pass in
-      setProjects(result);
-      setLoading(false);
+      try {
+        const result = await loadProjects(userId);
+        setProjects(result);
+      } catch (err) {
+        setToast({
+          message: "Failed to load projects.",
+          type: MessageBarType.error,
+        });
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [userId]);
+  }, [userId, loadProjects]);
 
-  
-  // const handleCreateProject = () => createProject(userId);
-  const handleDeleteProject = (id: string) => deleteProject(userId, id);
+  /** Styles */
+  const classes = useMemo(
+    () =>
+      mergeStyleSets({
+        page: {
+          height: "100vh",
+          padding: 20,
+          position: "relative",
+          background: theme.palette.white,
+        },
+        grid: {
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+          gap: 24,
+          padding: 10,
+        },
+        card: {
+          background: theme.palette.white,
+          borderRadius: 8,
+          padding: 14,
+          boxShadow: theme.effects.elevation8,
+          position: "relative",
+          cursor: "pointer",
+          selectors: {
+            "&:hover": {
+              boxShadow: theme.effects.elevation16,
+            },
+            "&:focus-within": {
+              outline: `2px solid ${theme.palette.themePrimary}`,
+            },
+          },
+        },
+        thumbnail: {
+          width: "100%",
+          height: 120,
+          background: theme.palette.neutralLighter,
+          borderRadius: 6,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          fontSize: 32,
+          color: theme.palette.neutralPrimary,
+        },
+        cardTitle: {
+          marginTop: 10,
+          textAlign: "center",
+          fontSize: 15,
+          fontWeight: 600,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        },
+        topBar: {
+          marginBottom: 30,
+        },
+        emptyState: {
+          textAlign: "center",
+          marginTop: 100,
+          opacity: 0.6,
+          fontSize: 18,
+        },
+      }),
+    [theme]
+  );
 
-  const openDeleteDialog = (proj: Project) => {
-    setSelectedProject(proj);
-    setConfirmDeleteOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (selectedProject) {
-      // await deleteProject(selectedProject.id);
-      await handleDeleteProject(selectedProject.id);
-      setProjects(prev => prev.filter(p => p.id !== selectedProject.id));
-      setToast({
-            message: `Deleted project "${selectedProject.name}".`,
-            type: MessageBarType.warning,
-          });
-    }
-    setConfirmDeleteOpen(false);
-    setSelectedProject(null);
-  };
-
+  /** Contextual menu per project (3-dot icon) */
   const projectMenu = (proj: Project): IContextualMenuProps => ({
     items: [
       {
         key: "open",
         text: "Open project",
         iconProps: { iconName: "OpenFolderHorizontal" },
-        onClick: async () => navigate(`/project/${proj.id}`)
+        onClick: async () => navigate(`/project/${proj.id}`),
+      },
+      {
+        key: "details",
+        text: "View details",
+        iconProps: { iconName: "Info" },
+        onClick: () => openProjectDetails(proj),
       },
       {
         key: "delete",
         text: "Delete project",
         iconProps: { iconName: "Delete" },
-        onClick: () => openDeleteDialog(proj)
-      }
-    ]
+        onClick: () => openDeleteDialog(proj),
+      },
+    ],
   });
 
-  return (
-    <div style={{ height: "100vh", padding: "20px", position: "relative" }}>
+  /** Delete helpers */
+  const openDeleteDialog = (proj: Project) => {
+    setProjectPendingDelete(proj);
+    setConfirmDeleteOpen(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!projectPendingDelete) return;
+    try {
+      await deleteProject(userId, projectPendingDelete.id);
+      setProjects((prev) => prev.filter((p) => p.id !== projectPendingDelete.id));
+      setToast({
+        message: `Deleted project "${projectPendingDelete.name}".`,
+        type: MessageBarType.warning,
+      });
+
+      // If details dialog is open for the same project, close it
+      if (selectedProject?.id === projectPendingDelete.id) {
+        setIsDetailsOpen(false);
+        setSelectedProject(null);
+        setProjectSummary(null);
+      }
+    } catch (err) {
+      setToast({
+        message: "Failed to delete project.",
+        type: MessageBarType.error,
+      });
+    } finally {
+      setConfirmDeleteOpen(false);
+      setProjectPendingDelete(null);
+    }
+  };
+
+  /** Open details dialog (card click) */
+  const openProjectDetails = async (proj: Project) => {
+    setSelectedProject(proj);
+    setDetailsError(null);
+    setProjectSummary(null);
+    setIsDetailsOpen(true);
+    setDetailsLoading(true);
+    try {
+      const summary = await loadProjectSummary(userId, proj.id);
+      setProjectSummary(summary);
+    } catch (err) {
+      setDetailsError("Failed to load project details.");
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  /** Upload documents */
+  const triggerUpload = () => fileInputRef.current?.click();
+
+  const onFilesChosen: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!selectedProject || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      await uploadDocuments(userId, selectedProject.id, files);
+      setToast({
+        message: `${files.length} file(s) uploaded.`,
+        type: MessageBarType.success,
+      });
+      // Refresh details after upload
+      const summary = await loadProjectSummary(userId, selectedProject.id);
+      setProjectSummary(summary);
+    } catch (err) {
+      setToast({
+        message: "Upload failed.",
+        type: MessageBarType.error,
+      });
+    } finally {
+      setIsUploading(false);
+      // Clear the file input so the same files can be re-picked if desired
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  /** Download all documents */
+  const onDownloadAll = async () => {
+    if (!selectedProject) return;
+    setIsDownloading(true);
+    try {
+      const result = await downloadAll(userId, selectedProject.id);
+      if (result instanceof Blob) {
+        const url = URL.createObjectURL(result);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${selectedProject.name}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setToast({
+          message: `Downloaded "${selectedProject.name}.zip".`,
+          type: MessageBarType.success,
+        });
+      } else {
+        setToast({
+          message: "Download completed.",
+          type: MessageBarType.success,
+        });
+      }
+    } catch (err) {
+      setToast({
+        message: "Failed to download project files.",
+        type: MessageBarType.error,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  /** DetailsList columns for the Project Details dialog */
+  const columns: IColumn[] = useMemo(
+    () => [
+      {
+        key: "col-doc",
+        name: "Document",
+        fieldName: "name",
+        minWidth: 220,
+        maxWidth: 480,
+        isResizable: true,
+        onRender: (item?: DocumentSummary) => (
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+            <span role="img" aria-label="document">
+              📄
+            </span>
+            <Text>{item?.name}</Text>
+          </Stack>
+        ),
+      },
+      {
+        key: "col-redactions",
+        name: "Redactions",
+        fieldName: "redactions",
+        minWidth: 100,
+        maxWidth: 140,
+        isResizable: true,
+        onRender: (item?: DocumentSummary) => (
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 6 }}>
+            <IconButton
+              iconProps={{ iconName: "Hide" }}
+              disabled
+              styles={{ root: { cursor: "default" } }}
+              title="Redactions"
+              ariaLabel="Redactions"
+            />
+            <Text>{item?.redactions ?? 0}</Text>
+          </Stack>
+        ),
+      },
+    ],
+    []
+  );
+
+  return (
+    <div className={classes.page}>
+      {/* Toast */}
       {toast && (
         <Toast
           message={toast.message}
@@ -234,47 +826,51 @@ export default function ProjectHome({
         />
       )}
 
-      {/* Spinner overlay */}
+      {/* Loading overlay */}
       {loading && (
-        <div style={{
-          position: "absolute",
-          top: 0, left: 0,
-          width: "100%", height: "100%",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          background: "rgba(255,255,255,0.7)",
-          zIndex: 999
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            background: "rgba(255,255,255,0.7)",
+            zIndex: 999,
+          }}
+        >
           <Spinner size={SpinnerSize.large} label="Loading your projects…" />
         </div>
       )}
 
       {/* Top bar */}
-      <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 30 } }}>
-        
-        {/* Left spacer: keeps "Create Project" centered */}
-        <div style={{ width: 100 }}></div>
+      <Stack
+        horizontal
+        horizontalAlign="space-between"
+        verticalAlign="center"
+        className={classes.topBar}
+      >
+        {/* Left spacer to help center the Create button */}
+        <div style={{ width: 100 }} />
 
         {/* Centered Create Project */}
         <DefaultButton
           text="Create New Project"
           iconProps={{ iconName: "Add" }}
-          // onClick={handleCreateProject}
           onClick={() => setIsCreateDialogOpen(true)}
           styles={{ root: { height: 40, fontSize: 16, padding: "0 20px" } }}
         />
 
-        {/* User + settings */}
+        {/* Right side: settings + user */}
         <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign="center">
-          
-          <IconButton
-            iconProps={{ iconName: "Settings" }}
-            title="Settings"
-            ariaLabel="Settings"
-            onClick={() => navigate("/settings")}
-          />
-
+          <TooltipHost content="Settings">
+            <IconButton
+              iconProps={{ iconName: "Settings" }}
+              title="Settings"
+              ariaLabel="Settings"
+              onClick={() => navigate("/settings")}
+            />
+          </TooltipHost>
           <Persona
             text={userName}
             size={PersonaSize.size32}
@@ -286,65 +882,41 @@ export default function ProjectHome({
 
       {/* Project Grid */}
       {projects.length === 0 && !loading ? (
-        <div style={{
-          textAlign: "center",
-          marginTop: 100,
-          opacity: 0.5,
-          fontSize: 18
-        }}>
+        <div className={classes.emptyState}>
           No projects yet. Create your first project to begin.
         </div>
       ) : (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-          gap: "24px",
-          padding: "10px"
-        }}>
-          {projects.map(proj => (
-            <div key={proj.id}
-              style={{
-                background: "white",
-                borderRadius: 8,
-                padding: 14,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-                position: "relative"
+        <div className={classes.grid} role="list">
+          {projects.map((proj) => (
+            <div
+              key={proj.id}
+              className={classes.card}
+              role="listitem"
+              tabIndex={0}
+              aria-label={`Project ${proj.name}`}
+              onClick={() => openProjectDetails(proj)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openProjectDetails(proj);
+                }
               }}
             >
-              {/* Three-dot menu */}
+              {/* Three-dot menu (does not trigger card click) */}
               <IconButton
                 iconProps={{ iconName: "MoreVertical" }}
                 styles={{
-                  root: {
-                    position: "absolute",
-                    top: 6, right: 6
-                  }
+                  root: { position: "absolute", top: 6, right: 6 },
                 }}
                 menuProps={projectMenu(proj)}
+                onClick={(e) => e.stopPropagation()}
               />
 
               {/* Project Thumbnail / Icon */}
-              <div style={{
-                width: "100%",
-                height: 110,
-                background: "#f3f2f1",
-                borderRadius: 6,
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                fontSize: 28,
-                color: "#605e5c"
-              }}>
-                📁
-              </div>
+              <div className={classes.thumbnail}>📁</div>
 
               {/* Project name */}
-              <div style={{
-                marginTop: 10,
-                textAlign: "center",
-                fontSize: 15,
-                fontWeight: 500
-              }}>
+              <div className={classes.cardTitle} title={proj.name}>
                 {proj.name}
               </div>
             </div>
@@ -352,7 +924,7 @@ export default function ProjectHome({
         </div>
       )}
 
-      {/* Delete confirmation dialog */}
+      {/* --- Delete confirmation dialog --- */}
       <Dialog
         hidden={!confirmDeleteOpen}
         onDismiss={() => setConfirmDeleteOpen(false)}
@@ -360,9 +932,9 @@ export default function ProjectHome({
           type: DialogType.normal,
           title: "Delete Project?",
           subText:
-            selectedProject ?
-            `Are you sure you want to delete project "${selectedProject.name}"? This action cannot be undone.`: 
-            "Are you sure you want to delete this project? This action cannot be undone.",
+            projectPendingDelete
+              ? `Are you sure you want to delete project "${projectPendingDelete.name}"? This action cannot be undone.`
+              : "Are you sure you want to delete this project? This action cannot be undone.",
         }}
         modalProps={{ isBlocking: true }}
       >
@@ -372,7 +944,7 @@ export default function ProjectHome({
         </DialogFooter>
       </Dialog>
 
-      {/* Create project dialog */}
+      {/* --- Create project dialog --- */}
       <Dialog
         hidden={!isCreateDialogOpen}
         onDismiss={() => setIsCreateDialogOpen(false)}
@@ -381,9 +953,7 @@ export default function ProjectHome({
           title: "Create New Project",
           subText: "Enter a name for your new project.",
         }}
-        modalProps={{
-          isBlocking: false,
-        }}
+        modalProps={{ isBlocking: false }}
       >
         <input
           autoFocus
@@ -391,11 +961,12 @@ export default function ProjectHome({
           onChange={(e) => setNewProjectName(e.target.value)}
           style={{
             width: "100%",
-            padding: "8px",
+            padding: 8,
             fontSize: 14,
             marginBottom: 10,
           }}
           placeholder="Project name"
+          aria-label="Project name"
         />
 
         <DialogFooter>
@@ -403,27 +974,31 @@ export default function ProjectHome({
             text="Create Project"
             disabled={!newProjectName.trim()}
             onClick={async () => {
-              const proj = await createProject(userId, newProjectName.trim());
-              if (proj) {
-                setProjects((prev) => [...prev, proj]);
-
-                // Show success toast
-                setToast({
-                  message: `Project "${proj.name}" created successfully.`,
-                  type: MessageBarType.success,
-                });
-              } else {
+              try {
+                const proj = await createProject(userId, newProjectName.trim());
+                if (proj) {
+                  setProjects((prev) => [...prev, proj]);
+                  setToast({
+                    message: `Project "${proj.name}" created successfully.`,
+                    type: MessageBarType.success,
+                  });
+                } else {
+                  setToast({
+                    message: "Failed to create project.",
+                    type: MessageBarType.error,
+                  });
+                }
+              } catch {
                 setToast({
                   message: "Failed to create project.",
                   type: MessageBarType.error,
                 });
+              } finally {
+                setNewProjectName("");
+                setIsCreateDialogOpen(false);
               }
-
-              setNewProjectName("");
-              setIsCreateDialogOpen(false);
             }}
           />
-
           <DefaultButton
             text="Cancel"
             onClick={() => {
@@ -434,6 +1009,95 @@ export default function ProjectHome({
         </DialogFooter>
       </Dialog>
 
+      {/* --- Project details dialog (on card click) --- */}
+      <Dialog
+        hidden={!isDetailsOpen}
+        onDismiss={() => setIsDetailsOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: selectedProject ? selectedProject.name : "Project",
+          subText:
+            projectSummary?.documents?.length
+              ? "Documents and current redaction counts:"
+              : detailsLoading
+              ? undefined
+              : "No documents yet. Upload to get started.",
+        }}
+        modalProps={{ isBlocking: false, styles: { main: { maxWidth: 700, width: "90vw" } } }}
+      >
+        {/* Content area */}
+        {detailsLoading ? (
+          <Spinner label="Loading project details…" />
+        ) : detailsError ? (
+          <Text style={{ color: theme.palette.red }}>
+            {detailsError}
+          </Text>
+        ) : (
+          <>
+            {projectSummary?.documents?.length ? (
+              <DetailsList
+                items={projectSummary.documents}
+                columns={columns}
+                selectionMode={SelectionMode.none}
+                compact
+              />
+            ) : (
+              <Text variant="small">This project has no documents yet.</Text>
+            )}
+          </>
+        )}
+
+        <Separator />
+
+        {/* Hidden file input for upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={onFilesChosen}
+          aria-hidden="true"
+        />
+
+        {/* Actions: Open, Upload, Download, Delete, Close */}
+        <DialogFooter>
+          <PrimaryButton
+            text="Open Project"
+            iconProps={{ iconName: "OpenFolderHorizontal" }}
+            onClick={() => {
+              if (selectedProject) {
+                navigate(`/project/${selectedProject.id}`);
+              }
+            }}
+          />
+          <DefaultButton
+            text={isUploading ? "Uploading…" : "Upload documents"}
+            iconProps={{ iconName: "Upload" }}
+            disabled={isUploading || detailsLoading || !selectedProject}
+            onClick={triggerUpload}
+          />
+          <DefaultButton
+            text={isDownloading ? "Preparing download…" : "Download all"}
+            iconProps={{ iconName: "Download" }}
+            disabled={isDownloading || detailsLoading || !selectedProject}
+            onClick={onDownloadAll}
+          />
+          <DefaultButton
+            text="Delete project"
+            iconProps={{ iconName: "Delete" }}
+            styles={{
+              root: { color: theme.palette.red, borderColor: theme.palette.red },
+            }}
+            onClick={() => {
+              if (selectedProject) {
+                setIsDetailsOpen(false);
+                openDeleteDialog(selectedProject);
+              }
+            }}
+          />
+          <SecondaryButton text="Close" onClick={() => setIsDetailsOpen(false)} />
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }

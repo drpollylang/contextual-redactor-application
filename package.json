@@ -38,6 +38,7 @@
     "@fluentui/react": "^8.125.4",
     "@fluentui/react-icons": "^2.0.317",
     "dexie": "^4.2.1",
+    "jszip": "^3.10.1",
     "lodash.debounce": "^4.0.8",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "4.8.69",

@@ -1,10 +1,110 @@
 import { db } from "../storage";
 import { v4 as uuidv4 } from "uuid";
 
+import {
+  listUserDocuments,
+  getDownloadSas 
+} from "../lib/apiClient";
+import { saveOriginalPdfToBlob } from "../lib/blobPersist";
+
 export interface ProjectRecord {
   id: string;
   name: string;
 }
+
+type HighlightsPayload = {
+  pdfId: string;
+  fileName: string;
+  allHighlights: any[];
+  activeHighlights: string[];
+  savedAt?: string;
+};
+
+export async function loadProjectSummary(userId: string, projectId: string) {
+  const all = await listUserDocuments(userId);
+  const docs = all.filter(d => d.projectId === projectId);
+
+  const documents = [];
+
+  for (const d of docs) {
+    let redactions = 0;
+
+    if (d.highlightsPath) {
+      const { downloadUrl } = await getDownloadSas({
+        containerName: "files",
+        blobPath: d.highlightsPath,
+        ttlMinutes: 5
+      });
+
+      const url = downloadUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
+      const res = await fetch(url);
+
+      if (res.ok) {
+        const json = (await res.json()) as HighlightsPayload;
+        redactions = (json.activeHighlights ?? []).length;
+      }
+    }
+
+    documents.push({
+      id: d.fileName,
+      name: d.fileName,
+      redactions
+    });
+  }
+
+  return {
+    project: { id: projectId, name: projectId },
+    documents
+  };
+}
+
+/** Upload one or more documents to a project using EXACT ProjectWorkspace logic */
+export async function uploadDocuments(
+  userId: string,
+  projectId: string,
+  files: File[]
+) {
+  for (const file of files) {
+    await saveOriginalPdfToBlob(userId, projectId, file);
+  }
+}
+
+/** Download all documents in a project as individual files (same logic as Workspace) */
+export async function downloadAll(
+  userId: string,
+  projectId: string
+): Promise<Blob> 
+{
+  const docs = await listUserDocuments(userId);
+  const docsForProject = docs.filter(d => d.projectId === projectId);
+
+  // Build a ZIP file dynamically
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+
+  for (const d of docsForProject) {
+    const { originalPath, workingPath } = d;
+
+    const blobPath = workingPath || originalPath;
+    if (!blobPath) continue;
+
+    // Same code your Workspace uses
+    const { downloadUrl } = await getDownloadSas({
+      containerName: "files",
+      blobPath,
+      ttlMinutes: 10
+    });
+
+    const realUrl = downloadUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
+    const res = await fetch(realUrl);
+    const blob = await res.blob();
+
+    zip.file(d.fileName, blob);
+  }
+
+  return await zip.generateAsync({ type: "blob" });
+}
+
 
 export async function loadProjects(userId: string): Promise<ProjectRecord[]> {
   try {
@@ -94,3 +194,4 @@ export async function deleteProject(userId: string, projectId: string): Promise<
     console.error("[deleteProject] failed", e);
   }
 }
+
