@@ -1130,6 +1130,21 @@ export default function ProjectHome({
           }   // NEW WIDTH
         }}
       >
+        {/* Top-right close button */}
+        <IconButton
+          iconProps={{ iconName: "Cancel" }}
+          ariaLabel="Close"
+          onClick={() => setIsDetailsOpen(false)}
+          styles={{
+            root: {
+              position: "absolute",
+              top: 12,
+              right: 12,
+              zIndex: 10,
+              background: "transparent"
+            }
+          }}
+        />
         <PrimaryButton
             text="Open Project"
             iconProps={{ iconName: "OpenFolderHorizontal" }}
@@ -1213,7 +1228,7 @@ export default function ProjectHome({
               }
             }}
           />
-          <SecondaryButton text="Close" onClick={() => setIsDetailsOpen(false)} />
+          {/* <SecondaryButton text="Close" onClick={() => setIsDetailsOpen(false)} /> */}
         </DialogFooter>
       </Dialog>
     </div>
