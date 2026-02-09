@@ -454,7 +454,7 @@ import {
   DefaultButton as SecondaryButton,
   Spinner,
   SpinnerSize,
-  IContextualMenuProps,
+  // IContextualMenuProps,
   MessageBarType,
   Text,
   DetailsList,
@@ -468,6 +468,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { ProjectRecord } from "../helpers/projectHelpers";
 import Toast from "../components/Toast";
+import JSZip from "jszip";
 
 // Needed for redaction + download
 import { 
@@ -597,9 +598,10 @@ export default function ProjectHome({
         },
         grid: {
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: 24,
-          padding: 10,
+          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+          gap: "28px",
+          padding: "0 40px 60px 40px",
+          justifyItems: "center"
         },
         card: {
           background: theme.palette.white,
@@ -620,18 +622,23 @@ export default function ProjectHome({
         thumbnail: {
           width: "100%",
           height: 120,
-          background: theme.palette.neutralLighter,
-          borderRadius: 6,
+          // background: theme.palette.neutralLighter,
+          // borderRadius: 6,
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          fontSize: 32,
-          color: theme.palette.neutralPrimary,
+          // fontSize: 32,
+          // color: theme.palette.neutralPrimary,
+          flexGrow: 1,
+          background: "#faf9f8",
+          borderRadius: 10,
+          fontSize: 48,
+          color: "#d89e00"
         },
         cardTitle: {
           marginTop: 10,
           textAlign: "center",
-          fontSize: 15,
+          fontSize: 17,
           fontWeight: 600,
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -651,28 +658,28 @@ export default function ProjectHome({
   );
 
   /** Contextual menu per project (3-dot icon) */
-  const projectMenu = (proj: Project): IContextualMenuProps => ({
-    items: [
-      {
-        key: "open",
-        text: "Open project",
-        iconProps: { iconName: "OpenFolderHorizontal" },
-        onClick: async () => navigate(`/project/${proj.id}`),
-      },
-      {
-        key: "details",
-        text: "View details",
-        iconProps: { iconName: "Info" },
-        onClick: () => openProjectDetails(proj),
-      },
-      {
-        key: "delete",
-        text: "Delete project",
-        iconProps: { iconName: "Delete" },
-        onClick: () => openDeleteDialog(proj),
-      },
-    ],
-  });
+  // const projectMenu = (proj: Project): IContextualMenuProps => ({
+  //   items: [
+  //     {
+  //       key: "open",
+  //       text: "Open project",
+  //       iconProps: { iconName: "OpenFolderHorizontal" },
+  //       onClick: async () => navigate(`/project/${proj.id}`),
+  //     },
+  //     {
+  //       key: "details",
+  //       text: "View details",
+  //       iconProps: { iconName: "Info" },
+  //       onClick: () => openProjectDetails(proj),
+  //     },
+  //     {
+  //       key: "delete",
+  //       text: "Delete project",
+  //       iconProps: { iconName: "Delete" },
+  //       onClick: () => openDeleteDialog(proj),
+  //     },
+  //   ],
+  // });
 
   /** Delete helpers */
   const openDeleteDialog = (proj: Project) => {
@@ -759,74 +766,85 @@ export default function ProjectHome({
 
   /** Download all documents */
   const downloadAllRedacted = async () => {
-  if (!selectedProject) return;
+    if (!selectedProject || !projectDocumentsRaw.length) return;
 
-  setIsDownloading(true);
-  try {
-    for (const doc of projectDocumentsRaw) {
-      const fileName = doc.fileName;
+    setIsDownloading(true);
 
-      const blobPath = doc.workingPath ?? doc.originalPath;
-      if (!blobPath) continue;
+    try {
+      const zip = new JSZip();
+      const projectZip = zip.folder(selectedProject.name) ?? zip;
 
-      const { downloadUrl } = await getDownloadSas({
-        containerName: "files",
-        blobPath,
-        ttlMinutes: 10
-      });
+      for (const doc of projectDocumentsRaw) {
+        const fileName = doc.fileName;
+        const blobPath = doc.workingPath ?? doc.originalPath;
+        if (!blobPath) continue;
 
-      const clean = downloadUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
-      const res = await fetch(clean);
-      const pdfBlob = await res.blob();
-
-      const objectUrl = URL.createObjectURL(pdfBlob);
-
-      // Load PDF.js document
-      const pdfDoc = await loadPdfDocumentFromUrl(objectUrl);
-
-      // Load highlights JSON
-      let all: any[] = [];
-      let activeIds: string[] = [];
-      if (doc.highlightsPath) {
-        const { downloadUrl: hUrl } = await getDownloadSas({
+        // 1. Fetch the PDF
+        const { downloadUrl } = await getDownloadSas({
           containerName: "files",
-          blobPath: doc.highlightsPath,
+          blobPath,
           ttlMinutes: 10
         });
 
-        const clean2 = hUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
-        const r = await fetch(clean2);
-        if (r.ok) {
-          const json = await r.json();
-          all = json.allHighlights ?? [];
-          activeIds = json.activeHighlights ?? [];
+        const clean = downloadUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
+        const pdfBlob = await (await fetch(clean)).blob();
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+
+        // 2. Load PDF.js document
+        const pdfDoc = await loadPdfDocumentFromUrl(pdfUrl);
+
+        // 3. Fetch highlights JSON
+        // let all: HighlightEntry[] = [];
+        // let activeIds: string[] = [];
+        let all = [];
+        let activeIds = [];
+
+        if (doc.highlightsPath) {
+          const { downloadUrl: hUrl } = await getDownloadSas({
+            containerName: "files",
+            blobPath: doc.highlightsPath,
+            ttlMinutes: 10
+          });
+
+          const clean2 = hUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
+          const res = await fetch(clean2);
+          if (res.ok) {
+            const j = await res.json();
+            all = j.allHighlights ?? [];
+            activeIds = j.activeHighlights ?? [];
+          }
         }
+
+        const active = all.filter((h: { id: string }) => activeIds.includes(h.id));
+        const grouped = groupActiveRectsByPage(active);
+
+        // 4. Generate redacted PDF
+        const finalBlob = await buildRedactedBlobFromPdfjsDoc(pdfDoc, grouped, 2.0);
+
+        projectZip.file(redactedName(fileName), finalBlob);
+
+        URL.revokeObjectURL(pdfUrl);
       }
 
-      const active = all.filter(h => activeIds.includes(h.id));
-      const grouped = groupActiveRectsByPage(active);
+      // 5. Download ZIP
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(zipBlob, `${selectedProject.name}.zip`);
 
-      const finalBlob = await buildRedactedBlobFromPdfjsDoc(pdfDoc, grouped, 2.0);
-      downloadBlob(finalBlob, redactedName(fileName));
+      setToast({
+        message: "Redacted ZIP downloaded.",
+        type: MessageBarType.success
+      });
 
-      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error(err);
+      setToast({
+        message: "Failed to build ZIP of redacted files.",
+        type: MessageBarType.error
+      });
     }
 
-    setToast({
-      message: "Redacted PDFs downloaded.",
-      type: MessageBarType.success
-    });
-
-  } catch (e) {
-    console.error(e);
-    setToast({
-      message: "Failed to download redacted files.",
-      type: MessageBarType.error
-    });
-  } finally {
     setIsDownloading(false);
-  }
-};
+  };
 
   /** DetailsList columns for the Project Details dialog */
   const columns: IColumn[] = useMemo(
@@ -835,15 +853,16 @@ export default function ProjectHome({
         key: "col-doc",
         name: "Document",
         fieldName: "name",
-        minWidth: 220,
-        maxWidth: 480,
+        minWidth: 400,
+        maxWidth: 700,
         isResizable: true,
+        isMultiline: true,
         onRender: (item?: DocumentSummary) => (
           <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
             <span role="img" aria-label="document">
               📄
             </span>
-            <Text>{item?.name}</Text>
+            <Text style={{ whiteSpace: "normal" }}>{item?.name}</Text>
           </Stack>
         ),
       },
@@ -957,16 +976,31 @@ export default function ProjectHome({
                   openProjectDetails(proj);
                 }
               }}
+              style={{
+                  width: 220,
+                  height: 220,
+                  background: "white",
+                  borderRadius: 12,
+                  padding: 16,
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+                  transition: "all 0.2s ease",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 8px 18px rgba(0,0,0,0.18)")}
+                onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 4px 10px rgba(0,0,0,0.12)")}
             >
               {/* Three-dot menu (does not trigger card click) */}
-              <IconButton
+              {/* <IconButton
                 iconProps={{ iconName: "MoreVertical" }}
                 styles={{
                   root: { position: "absolute", top: 6, right: 6 },
                 }}
                 menuProps={projectMenu(proj)}
                 onClick={(e) => e.stopPropagation()}
-              />
+              /> */}
 
               {/* Project Thumbnail / Icon */}
               <div className={classes.thumbnail}>📁</div>
@@ -1009,7 +1043,10 @@ export default function ProjectHome({
           title: "Create New Project",
           subText: "Enter a name for your new project.",
         }}
-        modalProps={{ isBlocking: false }}
+        modalProps={{ 
+          isBlocking: false,
+          styles: { main: { maxWidth: 1000, width: "90vw" } } 
+        }}
       >
         <input
           autoFocus
