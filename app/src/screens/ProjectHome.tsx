@@ -459,11 +459,16 @@ import {
   Text,
   DetailsList,
   IColumn,
-  SelectionMode,
-  Separator,
+  // SelectionMode,
+  // Separator,
   useTheme,
   mergeStyleSets,
   TooltipHost,
+  Panel,
+  PanelType,
+  Pivot,
+  PivotItem,
+  MessageBar,
 } from "@fluentui/react";
 import { useNavigate } from "react-router-dom";
 import { ProjectRecord } from "../helpers/projectHelpers";
@@ -695,6 +700,12 @@ export default function ProjectHome({
   //   ],
   // });
 
+  function colorForProject(name: string) {
+    const colors = ["#FFD700", "#FF8C00", "#4CAF50", "#2196F3", "#9C27B0"];
+    const index = name.length % colors.length;
+    return colors[index];
+  }
+
   /** Delete helpers */
   const openDeleteDialog = (proj: Project) => {
     setProjectPendingDelete(proj);
@@ -728,6 +739,22 @@ export default function ProjectHome({
     }
   };
 
+  /** Drag and drop uplooad handlers */
+  const handleDropUpload = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsUploading(true);
+    const files = Array.from(e.dataTransfer.files);
+    await uploadDocuments(userId, selectedProject!.id, files);
+    setIsUploading(false);
+  };
+
+  // const handleUploadFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   setIsUploading(true);
+  //   const files = Array.from(e.target.files ?? []);
+  //   await uploadDocuments(userId, selectedProject!.id, files);
+  //   setIsUploading(false);
+  // };
+
   /** Open details dialog (card click) */
   const openProjectDetails = async (proj: Project) => {
     setSelectedProject(proj);
@@ -739,6 +766,9 @@ export default function ProjectHome({
     const rawDocs = await listUserDocuments(userId);
     setProjectDocumentsRaw(rawDocs.filter(d => d.projectId === proj.id));
 
+    setDetailsLoading(true);
+    setDetailsError(null);
+
     try {
       const summary = await loadProjectSummary(userId, proj.id);
       setProjectSummary(summary);
@@ -747,10 +777,11 @@ export default function ProjectHome({
     } finally {
       setDetailsLoading(false);
     }
+    setDetailsLoading(false);
   };
 
   /** Upload documents */
-  const triggerUpload = () => fileInputRef.current?.click();
+  // const triggerUpload = () => fileInputRef.current?.click();
 
   const onFilesChosen: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
@@ -1016,20 +1047,27 @@ export default function ProjectHome({
                 }
               }}
               style={{
-                  width: 220,
-                  height: 220,
+                  width: 240,
+                  height: 240,
                   background: "white",
-                  borderRadius: 12,
-                  padding: 16,
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
-                  transition: "all 0.2s ease",
+                  borderRadius: 16,
+                  padding: 20,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
                   cursor: "pointer",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 8px 18px rgba(0,0,0,0.18)")}
-                onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 4px 10px rgba(0,0,0,0.12)")}
+                
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "scale(1.06)";
+                  e.currentTarget.style.boxShadow = "0 10px 24px rgba(0,0,0,0.22)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)";
+                }}
             >
               {/* Three-dot menu (does not trigger card click) */}
               {/* <IconButton
@@ -1042,10 +1080,28 @@ export default function ProjectHome({
               /> */}
 
               {/* Project Thumbnail / Icon */}
-              <div className={classes.thumbnail}>📁</div>
+              <div 
+                className={classes.thumbnail}
+                style={{
+                    flexGrow: 1,
+                    background: colorForProject(proj.name),
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 50,
+                    color: "white",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                  }}
+              >
+                📁
+              </div>
 
               {/* Project name */}
-              <div className={classes.cardTitle} title={proj.name}>
+              <div 
+                className={classes.cardTitle} 
+                title={proj.name}
+              >
                 {proj.name}
               </div>
             </div>
@@ -1142,7 +1198,7 @@ export default function ProjectHome({
       </Dialog>
 
       {/* --- Project details dialog (on card click) --- */}
-      <Dialog
+      {/* <Dialog
         hidden={!isDetailsOpen}
         onDismiss={() => setIsDetailsOpen(false)}
         dialogContentProps={{
@@ -1173,8 +1229,9 @@ export default function ProjectHome({
           }   // NEW WIDTH
         }}
       >
+        */}
         {/* Top-right close button */}
-        <IconButton
+        {/* <IconButton
           iconProps={{ iconName: "ChromeClose" }}
           ariaLabel="Close dialog"
           onClick={() => setIsDetailsOpen(false)}
@@ -1198,16 +1255,16 @@ export default function ProjectHome({
             iconProps={{ iconName: "OpenFolderHorizontal" }}
             onClick={() => navigate(`/project/${selectedProject?.id}`)}
             style={{ marginBottom: 16, marginTop: 4 }}
-          />
+          /> */}
 
           
         {/* Description text */}
-        <Text variant="mediumPlus" styles={{ root: { marginBottom: 12 } }}>
+        {/* <Text variant="mediumPlus" styles={{ root: { marginBottom: 12 } }}>
           Documents and current redaction counts:
-        </Text>
+        </Text> */}
 
         {/* Content area */}
-        {detailsLoading ? (
+        {/* {detailsLoading ? (
           <Spinner label="Loading project details…" />
         ) : detailsError ? (
           <Text style={{ color: theme.palette.red }}>
@@ -1234,19 +1291,20 @@ export default function ProjectHome({
           </>
         )}
 
-        <Separator />
+        <Separator /> */}
 
         {/* Hidden file input for upload */}
-        <input
+        {/* <input
           ref={fileInputRef}
           type="file"
           multiple
           style={{ display: "none" }}
           onChange={onFilesChosen}
           aria-hidden="true"
-        />
+        /> */}
 
         {/* Actions: Open, Upload, Download, Delete, Close */}
+        {/*
         <DialogFooter>
           <PrimaryButton
             text="Open Project"
@@ -1283,8 +1341,135 @@ export default function ProjectHome({
             }}
           />
           {/* <SecondaryButton text="Close" onClick={() => setIsDetailsOpen(false)} /> */}
+        {/* 
         </DialogFooter>
-      </Dialog>
+      </Dialog> */}
+      <Panel
+        isOpen={isDetailsOpen}
+        onDismiss={() => setIsDetailsOpen(false)}
+        type={PanelType.custom}
+        customWidth="1000px"
+        isLightDismiss
+        styles={{
+          main: {
+            borderRadius: "12px 0 0 12px",
+            boxShadow: "0 12px 40px rgba(0,0,0,0.28)",
+            animation: "fadeInPanel 220ms ease",
+          }
+        }}
+        headerText={selectedProject?.name}
+        closeButtonAriaLabel="Close"
+      />
+
+      {/* Panel Content */}
+      <div style={{ padding: "16px 24px 32px 24px" }}>
+        
+        {/* Tabbed Interface */}
+        <Pivot aria-label="Project Info Tabs">
+
+          {/* Downloading spinner */}
+          {isDownloading && (
+            <div style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              background: "rgba(255,255,255,0.7)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999
+            }}>
+              <Spinner size={SpinnerSize.large} label="Building ZIP…" />
+            </div>
+          )}
+
+          {/* DOCUMENTS TAB */}
+          <PivotItem headerText="Documents">
+            <PrimaryButton
+              iconProps={{ iconName: "OpenFolderHorizontal" }}
+              text="Open Project Workspace"
+              onClick={() => navigate(`/project/${selectedProject?.id}`)}
+              style={{ marginBottom: 20 }}
+            />
+
+            {detailsLoading && (
+              <Spinner label="Loading documents…" style={{ marginBottom: 20 }} />
+            )}
+            {detailsError && (
+              <MessageBar messageBarType={MessageBarType.error} style={{ marginBottom: 20 }}>
+                {detailsError}
+              </MessageBar>
+            )}
+
+            <DetailsList
+              items={projectSummary?.documents ?? []}
+              columns={columns}
+              selectionMode={0}
+              styles={{ root: { width: "100%" } }}
+            />
+
+            <DefaultButton
+              text="Download redacted ZIP"
+              iconProps={{ iconName: "Download" }}
+              onClick={downloadAllRedacted}
+              style={{ marginTop: 20 }}
+            />
+          </PivotItem>
+
+          {/* UPLOAD TAB */}
+          <PivotItem headerText="Upload">
+            {isUploading && (
+              <Spinner label="Uploading…" style={{ marginBottom: 16 }} />
+            )}
+            <div
+              onDrop={handleDropUpload}
+              onDragOver={(e) => e.preventDefault()}
+              style={{
+                border: "2px dashed #888",
+                borderRadius: 12,
+                padding: "40px",
+                textAlign: "center",
+                cursor: "pointer",
+                transition: "0.2s",
+              }}
+            >
+              <span style={{ fontSize: 40 }}>📤</span>
+              <h3>Drag & Drop files here</h3>
+              <p>or click to browse</p>
+
+              <input
+                type="file"
+                multiple
+                // onChange={handleUploadFiles}
+                onChange = {onFilesChosen}
+                style={{ display: "none" }}
+                ref={fileInputRef}
+              />
+
+              <DefaultButton
+                text="Browse Files"
+                onClick={() => fileInputRef.current?.click()}
+              />
+            </div>
+          </PivotItem>
+
+          {/* STATS TAB */}
+          <PivotItem headerText="Stats">
+            <h3>Project Summary</h3>
+            <p>Total documents: {projectSummary?.documents.length ?? 0}</p>
+            <p>Total redactions: {projectSummary?.documents.reduce((a, b) => a + b.redactions, 0)}</p>
+          </PivotItem>
+        </Pivot>
+
+        <DefaultButton
+          text="Delete project"
+          iconProps={{ iconName: "Delete" }}
+          styles={{ root: { color: "red", borderColor: "red", marginTop: 20 } }}
+          onClick={() => openDeleteDialog(selectedProject!)}
+        />
+      </div>
     </div>
   );
 }
