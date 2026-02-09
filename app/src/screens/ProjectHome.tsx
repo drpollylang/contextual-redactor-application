@@ -958,7 +958,11 @@ export default function ProjectHome({
             text="View in workspace"
             iconProps={{ iconName: "NavigateForward" }}
             // onClick={() => navigate(`/project/${selectedProject?.id}`)}
-            onClick={() => openWorkspace(selectedProject!.id) }
+            // onClick={() => openWorkspace(selectedProject!.id) }
+             onClick={() => {
+              console.log("Opening workspace for project:", selectedProject);
+              selectedProject && openWorkspace(selectedProject.id) 
+            }}
             styles={{
               root: {
                 border: "none",
