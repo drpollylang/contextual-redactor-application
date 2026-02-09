@@ -1045,7 +1045,7 @@ export default function ProjectHome({
         }}
         modalProps={{ 
           isBlocking: false,
-          styles: { main: { maxWidth: 1000, width: "90vw" } } 
+          // styles: { main: { maxWidth: 1000, width: "90vw" } } 
         }}
       >
         <input
@@ -1107,19 +1107,27 @@ export default function ProjectHome({
         hidden={!isDetailsOpen}
         onDismiss={() => setIsDetailsOpen(false)}
         dialogContentProps={{
-          type: DialogType.normal,
+          type: DialogType.largeHeader,
           title: selectedProject ? selectedProject.name : "Project",
-          subText:
-            projectSummary?.documents?.length
-              ? "Documents and current redaction counts:"
-              : detailsLoading
-              ? undefined
-              : "No documents yet. Upload to get started.",
+          // subText:
+          //   projectSummary?.documents?.length
+          //     ? "Documents and current redaction counts:"
+          //     : detailsLoading
+          //     ? undefined
+          //     : "No documents yet. Upload to get started.",
         }}
         // modalProps={{ isBlocking: false, styles: { main: { maxWidth: 700, width: "90vw" } } }}
         modalProps={{
           isBlocking: false,
-          styles: { main: { maxWidth: 900, width: "90vw" } }   // NEW WIDTH
+          isDarkOverlay: false,
+          styles: { 
+            main: { 
+              width: "1000px",        // ← FORCE width
+              maxWidth: "1000px",     // ← prevent shrink
+              minWidth: "900px",
+              padding: "24px"
+            } 
+          }   // NEW WIDTH
         }}
       >
         <PrimaryButton
@@ -1128,6 +1136,13 @@ export default function ProjectHome({
             onClick={() => navigate(`/project/${selectedProject?.id}`)}
             style={{ marginBottom: 16 }}
           />
+
+          
+        {/* Description text */}
+        <Text variant="mediumPlus" styles={{ root: { marginBottom: 12 } }}>
+          Documents and current redaction counts:
+        </Text>
+
         {/* Content area */}
         {detailsLoading ? (
           <Spinner label="Loading project details…" />
