@@ -469,6 +469,20 @@ import { useNavigate } from "react-router-dom";
 import { ProjectRecord } from "../helpers/projectHelpers";
 import Toast from "../components/Toast";
 
+// Needed for redaction + download
+import { 
+  getDownloadSas,
+  listUserDocuments
+} from "../lib/apiClient";
+
+import { 
+  buildRedactedBlobFromPdfjsDoc,
+  groupActiveRectsByPage
+} from "../lib/pdfRedactor";
+
+import { loadPdfDocumentFromUrl, downloadBlob, redactedName } from "../screens/ProjectWorkspace"; // IF exposed, otherwise see below
+// import { downloadBlob, redactedName } from "../lib/blobPersist";
+
 /** --- Types --- */
 
 interface Project {
@@ -527,6 +541,8 @@ export default function ProjectHome({
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [projectDocumentsRaw, setProjectDocumentsRaw] = useState<any[]>([]);
 
   // Toast
   const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
@@ -698,6 +714,10 @@ export default function ProjectHome({
     setProjectSummary(null);
     setIsDetailsOpen(true);
     setDetailsLoading(true);
+
+    const rawDocs = await listUserDocuments(userId);
+    setProjectDocumentsRaw(rawDocs.filter(d => d.projectId === proj.id));
+
     try {
       const summary = await loadProjectSummary(userId, proj.id);
       setProjectSummary(summary);
@@ -738,39 +758,75 @@ export default function ProjectHome({
   };
 
   /** Download all documents */
-  const onDownloadAll = async () => {
-    if (!selectedProject) return;
-    setIsDownloading(true);
-    try {
-      const result = await downloadAll(userId, selectedProject.id);
-      if (result instanceof Blob) {
-        const url = URL.createObjectURL(result);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${selectedProject.name}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        setToast({
-          message: `Downloaded "${selectedProject.name}.zip".`,
-          type: MessageBarType.success,
-        });
-      } else {
-        setToast({
-          message: "Download completed.",
-          type: MessageBarType.success,
-        });
-      }
-    } catch (err) {
-      setToast({
-        message: "Failed to download project files.",
-        type: MessageBarType.error,
+  const downloadAllRedacted = async () => {
+  if (!selectedProject) return;
+
+  setIsDownloading(true);
+  try {
+    for (const doc of projectDocumentsRaw) {
+      const fileName = doc.fileName;
+
+      const blobPath = doc.workingPath ?? doc.originalPath;
+      if (!blobPath) continue;
+
+      const { downloadUrl } = await getDownloadSas({
+        containerName: "files",
+        blobPath,
+        ttlMinutes: 10
       });
-    } finally {
-      setIsDownloading(false);
+
+      const clean = downloadUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
+      const res = await fetch(clean);
+      const pdfBlob = await res.blob();
+
+      const objectUrl = URL.createObjectURL(pdfBlob);
+
+      // Load PDF.js document
+      const pdfDoc = await loadPdfDocumentFromUrl(objectUrl);
+
+      // Load highlights JSON
+      let all: any[] = [];
+      let activeIds: string[] = [];
+      if (doc.highlightsPath) {
+        const { downloadUrl: hUrl } = await getDownloadSas({
+          containerName: "files",
+          blobPath: doc.highlightsPath,
+          ttlMinutes: 10
+        });
+
+        const clean2 = hUrl.replace(/&amp;amp;amp;/g, "&").replace(/&amp;amp;/g, "&");
+        const r = await fetch(clean2);
+        if (r.ok) {
+          const json = await r.json();
+          all = json.allHighlights ?? [];
+          activeIds = json.activeHighlights ?? [];
+        }
+      }
+
+      const active = all.filter(h => activeIds.includes(h.id));
+      const grouped = groupActiveRectsByPage(active);
+
+      const finalBlob = await buildRedactedBlobFromPdfjsDoc(pdfDoc, grouped, 2.0);
+      downloadBlob(finalBlob, redactedName(fileName));
+
+      URL.revokeObjectURL(objectUrl);
     }
-  };
+
+    setToast({
+      message: "Redacted PDFs downloaded.",
+      type: MessageBarType.success
+    });
+
+  } catch (e) {
+    console.error(e);
+    setToast({
+      message: "Failed to download redacted files.",
+      type: MessageBarType.error
+    });
+  } finally {
+    setIsDownloading(false);
+  }
+};
 
   /** DetailsList columns for the Project Details dialog */
   const columns: IColumn[] = useMemo(
@@ -800,13 +856,13 @@ export default function ProjectHome({
         isResizable: true,
         onRender: (item?: DocumentSummary) => (
           <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 6 }}>
-            <IconButton
+            {/* <IconButton
               iconProps={{ iconName: "Hide" }}
               disabled
               styles={{ root: { cursor: "default" } }}
               title="Redactions"
               ariaLabel="Redactions"
-            />
+            /> */}
             <Text>{item?.redactions ?? 0}</Text>
           </Stack>
         ),
@@ -1023,8 +1079,18 @@ export default function ProjectHome({
               ? undefined
               : "No documents yet. Upload to get started.",
         }}
-        modalProps={{ isBlocking: false, styles: { main: { maxWidth: 700, width: "90vw" } } }}
+        // modalProps={{ isBlocking: false, styles: { main: { maxWidth: 700, width: "90vw" } } }}
+        modalProps={{
+          isBlocking: false,
+          styles: { main: { maxWidth: 900, width: "90vw" } }   // NEW WIDTH
+        }}
       >
+        <PrimaryButton
+            text="Open Project"
+            iconProps={{ iconName: "OpenFolderHorizontal" }}
+            onClick={() => navigate(`/project/${selectedProject?.id}`)}
+            style={{ marginBottom: 16 }}
+          />
         {/* Content area */}
         {detailsLoading ? (
           <Spinner label="Loading project details…" />
@@ -1077,10 +1143,10 @@ export default function ProjectHome({
             onClick={triggerUpload}
           />
           <DefaultButton
-            text={isDownloading ? "Preparing download…" : "Download all"}
+            text={isDownloading ? "Preparing…" : "Download all redacted files"}
             iconProps={{ iconName: "Download" }}
-            disabled={isDownloading || detailsLoading || !selectedProject}
-            onClick={onDownloadAll}
+            disabled={isDownloading}
+            onClick={() => downloadAllRedacted()}
           />
           <DefaultButton
             text="Delete project"

@@ -90,7 +90,7 @@ async function fetchJson<T>(container: string, blobPath: string, ttlMinutes = 10
 }
 
 // Load a PDF.js document from a URL (object URL or SAS URL)
-async function loadPdfDocumentFromUrl(url: string) {
+export async function loadPdfDocumentFromUrl(url: string) {
   // Ensure workerSrc is set (idempotent)
   GlobalWorkerOptions.workerSrc = DEFAULT_WORKER_SRC;
   const task = getDocument({ url });
@@ -98,7 +98,7 @@ async function loadPdfDocumentFromUrl(url: string) {
 }
 
 // Utility to force a browser download
-function downloadBlob(blob: Blob, fileName: string) {
+export function downloadBlob(blob: Blob, fileName: string) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = fileName;
@@ -111,7 +111,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 // Normalize a redacted file name that won’t overwrite the original
-function redactedName(originalName: string) {
+export function redactedName(originalName: string) {
   const dot = originalName.lastIndexOf(".");
   if (dot > 0) {
     const base = originalName.slice(0, dot);
