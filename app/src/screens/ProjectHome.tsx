@@ -487,7 +487,7 @@ import {
 import Toast from "../components/Toast";
 import JSZip from "jszip";
 
-import { AiJobStatus } from "../types/ai";
+import { AiJobStatus } from "../mytypes/ai";
 
 // Needed for redaction + download
 import { 

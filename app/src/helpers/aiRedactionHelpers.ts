@@ -1,6 +1,6 @@
 // src/helpers/aiRedactionHelpers.ts
 
-import { AiJobStatus } from "../types/ai";
+import { AiJobStatus } from "../mytypes/ai";
 
 /**
  * Trigger AI redaction suggestions for a single PDF in storage.
