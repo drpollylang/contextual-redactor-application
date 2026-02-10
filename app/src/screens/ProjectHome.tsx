@@ -469,6 +469,7 @@ import {
   Pivot,
   PivotItem,
   MessageBar,
+  ProgressIndicator,
   // TextField,
   Dropdown,
 } from "@fluentui/react";
@@ -480,9 +481,13 @@ import { Input } from "@fluentui/react-components";
 import { useNavigate } from "react-router-dom";
 import { ProjectRecord } from "../helpers/projectHelpers";
 import { removeDocument, downloadDocument } from "../helpers/documentHelpers";
-import { runAiRedactionForProject } from "../helpers/aiRedactionHelpers";
+import { 
+  // runAiRedactionForProject, 
+  runAiRedactionForProjectParallel } from "../helpers/aiRedactionHelpers";
 import Toast from "../components/Toast";
 import JSZip from "jszip";
+
+import { AiJobStatus } from "../types/ai";
 
 // Needed for redaction + download
 import { 
@@ -603,7 +608,19 @@ export default function ProjectHome({
   const [isUploading, setIsUploading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  
+  // per-document statuses
+  const [aiStatusMap, setAiStatusMap] = useState<Record<string, AiJobStatus>>({});
+
+  // batch-level info
+  const [aiBatchProgress, setAiBatchProgress] = useState(0); // 0..1
+  const [aiBatchMessage, setAiBatchMessage] = useState("");
+  const [aiBatchHistory, setAiBatchHistory] = useState<
+    { fileName: string; timestamp: number; status: AiJobStatus }[]
+  >([]);
+
+  // cancellation support
+  const aiBatchAbort = useRef<AbortController | null>(null);
+    
   // Strongly typed guard: never navigate with undefined
   const openWorkspace = (projectId: string) => navigate(`/project/${projectId}`);
 
@@ -638,6 +655,7 @@ export default function ProjectHome({
       }
     })();
   }, [userId, loadProjects]);
+
 
   /** Styles */
   const classes = useMemo(
@@ -834,48 +852,107 @@ export default function ProjectHome({
   const handleAiRedactionGeneration = async () => {
     if (!selectedProject || !projectSummary) return;
 
-    const fileNames = projectSummary.documents.map(d => d.name);
+    const docs = projectSummary.documents.map(d => d.name);
 
     setIsAiBatchRunning(true);
+    setAiBatchMessage("Starting AI…");
+    setAiStatusMap(Object.fromEntries(docs.map(d => [d, "pending"])));
 
-    await runAiRedactionForProject({
-      userId,
-      projectId: selectedProject.id,
-      fileNames,
-      aiRules,
-      userInstructions,
+    
+    aiBatchAbort.current = new AbortController();
+    const { signal } = aiBatchAbort.current;
 
-      onDocumentStart: (name, index, total) => {
-        setAiBatchStatus(`Starting AI for ${name} (${index}/${total})`);
-      },
+    try {
+        await runAiRedactionForProjectParallel({
+          userId,
+          projectId: selectedProject.id,
+          fileNames: docs,
+          aiRules,
+          userInstructions,
+          concurrency: 3,
+          signal,
 
-      onDocumentStatus: (name, status) => {
-        setAiBatchStatus(`${name}: ${status}`);
-      },
+          onDocStatus: (fileName, status) => {
+            setAiStatusMap(prev => ({ ...prev, [fileName]: status }));
+            setAiBatchStatus(`AI for ${fileName}: ${status}`);
+          },
 
-      onDocumentComplete: (name) => {
-        setToast({
-          message: `AI suggestions generated for ${name}`,
-          type: MessageBarType.success
+          onDocComplete: (fileName) => {
+            setAiBatchHistory(prev => [
+              ...prev,
+              { fileName, status: "completed", timestamp: Date.now() }
+            ]);
+            showToast(`AI suggestions completed for ${fileName}`);
+          },
+
+          onDocError: (fileName) => {
+            setAiBatchHistory(prev => [
+              ...prev,
+              { fileName, status: "failed", timestamp: Date.now() }
+            ]);
+            showToast(`AI suggestion failed for ${fileName}`, MessageBarType.error);
+          },
+
+          onBatchProgress: (done, total) => {
+            setAiBatchProgress(done / total);
+            setAiBatchMessage(`Progress: ${done} / ${total}`);
+          }
         });
-      },
 
-      onDocumentError: (name) => {
-        setToast({
-          message: `AI generation failed for ${name}`,
-          type: MessageBarType.error
-        });
-      },
+        showToast("AI suggestions finished for all documents!");
 
-      onBatchComplete: () => {
-        setToast({
-          message: "AI suggestions generated for all documents.",
-          type: MessageBarType.success
-        });
-        setAiBatchStatus("");
-        setIsAiBatchRunning(false);
+        // optional: trigger a reload of Workspace's highlights for the project
+        localStorage.setItem("aiRefreshProjectId", selectedProject.id);
+
+      } catch (err) {
+        if (signal.aborted) {
+          showToast("AI batch cancelled.", MessageBarType.warning);
+        } else {
+          showToast("AI batch failed.", MessageBarType.error);
+        }
       }
-    });
+
+      setIsAiBatchRunning(false);
+      setAiBatchMessage("");
+
+    // await runAiRedactionForProject({
+    //   userId,
+    //   projectId: selectedProject.id,
+    //   fileNames,
+    //   aiRules,
+    //   userInstructions,
+
+    //   onDocumentStart: (name, index, total) => {
+    //     setAiBatchStatus(`Starting AI for ${name} (${index}/${total})`);
+    //   },
+
+    //   onDocumentStatus: (name, status) => {
+    //     setAiBatchStatus(`${name}: ${status}`);
+    //   },
+
+    //   onDocumentComplete: (name) => {
+    //     setToast({
+    //       message: `AI suggestions generated for ${name}`,
+    //       type: MessageBarType.success
+    //     });
+    //   },
+
+    //   onDocumentError: (name) => {
+    //     setToast({
+    //       message: `AI generation failed for ${name}`,
+    //       type: MessageBarType.error
+    //     });
+    //   },
+
+    //   onBatchComplete: () => {
+    //     setToast({
+    //       message: "AI suggestions generated for all documents.",
+    //       type: MessageBarType.success
+    //     });
+    //     setAiBatchStatus("");
+    //     setIsAiBatchRunning(false);
+    //   }
+    // });
   }
 
 
@@ -1041,6 +1118,36 @@ export default function ProjectHome({
             <Text style={{ whiteSpace: "normal", fontWeight: 500 }}>{item?.name}</Text>
           </Stack>
         ),
+      },
+      /* per-document AI status badge */
+      {
+        key: "aiStatus",
+        name: "AI",
+        minWidth: 70,
+        onRender: (doc) => {
+          const status = aiStatusMap[doc.name] ?? "pending";
+
+          const color =
+            status === "completed" ? "green" :
+            status === "running"   ? "orange" :
+            status === "failed"    ? "red" :
+            status === "cancelled" ? "gray" :
+                                    "#666";
+
+          return (
+            <span style={{
+              display: "inline-block",
+              padding: "3px 8px",
+              background: color,
+              color: "white",
+              borderRadius: 8,
+              fontSize: 12,
+              textTransform: "capitalize"
+            }}>
+              {status}
+            </span>
+          );
+        }
       },
       {
         key: "col-redactions",
@@ -1757,6 +1864,15 @@ export default function ProjectHome({
               styles={{ root: { width: "100%" } }}
             />
 
+            {isAiBatchRunning && (
+              <div style={{ marginTop: 12, marginBottom: 12 }}>
+                <ProgressIndicator
+                  label={aiBatchMessage}
+                  percentComplete={aiBatchProgress}
+                />
+              </div>
+            )}
+
             <DefaultButton
               text={
                 isAiBatchRunning
@@ -1806,6 +1922,20 @@ export default function ProjectHome({
               // })}
             />
 
+            {isAiBatchRunning && (
+              <DefaultButton
+                text="Cancel"
+                iconProps={{ iconName: "Cancel" }}
+                onClick={() => {
+                  aiBatchAbort.current?.abort();
+                  setAiBatchMessage("Batch cancelled");
+                  setIsAiBatchRunning(false);
+                  showToast("AI batch cancelled.", MessageBarType.warning);
+                }}
+                styles={{ root: { marginLeft: 12 } }}
+              />
+            )}
+
             <DefaultButton
               text="Download all redacted documents"
               iconProps={{ iconName: "Download" }}
@@ -1849,6 +1979,20 @@ export default function ProjectHome({
                 onClick={() => fileInputRef.current?.click()}
               />
             </div>
+          </PivotItem>
+
+          {/* BATCH AI JOB HISTORY TAB */}
+          <PivotItem headerText="AI History">
+            {aiBatchHistory.length === 0 && (
+              <Text>No AI tasks have been run yet.</Text>
+            )}
+
+            {aiBatchHistory.map((h, i) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <strong>{h.fileName}</strong> — {h.status} —{" "}
+                {new Date(h.timestamp).toLocaleString()}
+              </div>
+            ))}
           </PivotItem>
 
           {/* DETAILS TAB */}

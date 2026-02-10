@@ -1,5 +1,7 @@
 // src/helpers/aiRedactionHelpers.ts
 
+import { AiJobStatus } from "../types/ai";
+
 /**
  * Trigger AI redaction suggestions for a single PDF in storage.
  * This does NOT apply results. It only starts the Durable orchestration.
@@ -312,4 +314,88 @@ export async function runAiRedactionForProject({
   }
 
   onBatchComplete?.();
+}
+
+
+export async function runAiRedactionForProjectParallel({
+  userId,
+  projectId,
+  fileNames,
+  aiRules,
+  userInstructions,
+  concurrency = 2,
+  signal,
+  onDocStatus,
+  onDocComplete,
+  onDocError,
+  onBatchProgress
+}: {
+  userId: string;
+  projectId: string;
+  fileNames: string[];
+  aiRules: string[];
+  userInstructions: string;
+  concurrency?: number;
+  signal?: AbortSignal;
+  onDocStatus?: (fileName: string, status: AiJobStatus) => void;
+  onDocComplete?: (fileName: string) => void;
+  onDocError?: (fileName: string, err: any) => void;
+  onBatchProgress?: (completed: number, total: number) => void;
+}) {
+  let active = 0;
+  let completed = 0;
+  const total = fileNames.length;
+  const queue = [...fileNames];
+  const aborted = () => signal?.aborted;
+
+  return new Promise<void>((resolve, reject) => {
+    const runNext = () => {
+      if (aborted()) return reject(new Error("Cancelled"));
+
+      if (queue.length === 0 && active === 0) {
+        resolve();
+        return;
+      }
+
+      while (active < concurrency && queue.length > 0) {
+        const fileName = queue.shift()!;
+        active++;
+
+        onDocStatus?.(fileName, "submitting");
+
+        // const blobPath = `files/${userId}/${projectId}/original/${fileName}`;
+
+        runAiRedactionWithPolling({
+          userId,
+          projectId,
+          fileName,
+          aiRules,
+          userInstructions,
+          onStatus: (s) => onDocStatus?.(fileName, s as AiJobStatus),
+          onComplete: () => {
+            onDocStatus?.(fileName, "completed");
+            onDocComplete?.(fileName);
+
+            completed++;
+            onBatchProgress?.(completed, total);
+
+            active--;
+            runNext();
+          },
+          onError: (err) => {
+            onDocStatus?.(fileName, "failed");
+            onDocError?.(fileName, err);
+
+            completed++;
+            onBatchProgress?.(completed, total);
+
+            active--;
+            runNext();
+          }
+        });
+      }
+    };
+
+    runNext();
+  });
 }
