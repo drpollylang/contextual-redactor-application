@@ -480,7 +480,7 @@ import { Input } from "@fluentui/react-components";
 import { useNavigate } from "react-router-dom";
 import { ProjectRecord } from "../helpers/projectHelpers";
 import { removeDocument, downloadDocument } from "../helpers/documentHelpers";
-import { startAiRedactionForProject } from "../helpers/aiRedactionHelpers";
+import { runAiRedactionForProject } from "../helpers/aiRedactionHelpers";
 import Toast from "../components/Toast";
 import JSZip from "jszip";
 
@@ -831,6 +831,54 @@ export default function ProjectHome({
 
   };
 
+  const handleAiRedactionGeneration = async () => {
+    if (!selectedProject || !projectSummary) return;
+
+    const fileNames = projectSummary.documents.map(d => d.name);
+
+    setIsAiBatchRunning(true);
+
+    await runAiRedactionForProject({
+      userId,
+      projectId: selectedProject.id,
+      fileNames,
+      aiRules,
+      userInstructions,
+
+      onDocumentStart: (name, index, total) => {
+        setAiBatchStatus(`Starting AI for ${name} (${index}/${total})`);
+      },
+
+      onDocumentStatus: (name, status) => {
+        setAiBatchStatus(`${name}: ${status}`);
+      },
+
+      onDocumentComplete: (name) => {
+        setToast({
+          message: `AI suggestions generated for ${name}`,
+          type: MessageBarType.success
+        });
+      },
+
+      onDocumentError: (name) => {
+        setToast({
+          message: `AI generation failed for ${name}`,
+          type: MessageBarType.error
+        });
+      },
+
+      onBatchComplete: () => {
+        setToast({
+          message: "AI suggestions generated for all documents.",
+          type: MessageBarType.success
+        });
+        setAiBatchStatus("");
+        setIsAiBatchRunning(false);
+      }
+    });
+  }
+
+
   // const handleUploadFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
   //   setIsUploading(true);
   //   const files = Array.from(e.target.files ?? []);
@@ -1069,10 +1117,15 @@ export default function ProjectHome({
             menuProps={{
               items: [
                 {
-                  key: "view",
+                  key: "open",
                   text: "Open in workspace",
-                  iconProps: { iconName: "OpenFile" },
-                  onClick: async () => selectedProject && openWorkspace(selectedProject.id)
+                  iconProps: { iconName: "NavigateForward" },
+                  // onClick: async () => selectedProject && openWorkspace(selectedProject.id)
+                  onClick: () => {
+                      if (!selectedProject) return;
+                      openWorkspace(selectedProject.id);
+                      // navigate(`/project/${selectedProject.id}`);
+                    }
                 },
                 // {
                 //   key: "download",
@@ -1716,40 +1769,41 @@ export default function ProjectHome({
                 root: { background: "#0078d4", color: "white", border: "none" },
                 rootHovered: { background: "#106ebe" }
               }}
-              onClick={menuAsync(async () => {
-                if (!selectedProject || !projectSummary) return;
+              onClick={menuAsync(handleAiRedactionGeneration)}
+              // onClick={menuAsync(async () => {
+              //   if (!selectedProject || !projectSummary) return;
 
-                const docNames = projectSummary.documents.map((d) => d.name);
+              //   const docNames = projectSummary.documents.map((d) => d.name);
 
-                setIsAiBatchRunning(true);
+              //   setIsAiBatchRunning(true);
 
-                try {
-                  await startAiRedactionForProject({
-                    userId,
-                    projectId: selectedProject.id,
-                    documents: docNames,
-                    aiRules, // must be passed into ProjectHome
-                    userInstructions, // also must be passed in
-                    onProgress: ({ fileName, index, total }) => {
-                      setAiBatchStatus(`Starting AI suggestions for ${fileName} (${index}/${total})…`);
-                    }
-                  });
+              //   try {
+              //     await startAiRedactionForProject({
+              //       userId,
+              //       projectId: selectedProject.id,
+              //       documents: docNames,
+              //       aiRules, // must be passed into ProjectHome
+              //       userInstructions, // also must be passed in
+              //       onProgress: ({ fileName, index, total }) => {
+              //         setAiBatchStatus(`Starting AI suggestions for ${fileName} (${index}/${total})…`);
+              //       }
+              //     });
 
-                  setAiBatchStatus("");
-                  setToast({
-                    message: "AI redaction suggestions generation started for all documents.",
-                    type: MessageBarType.success
-                  });
-                } catch (err) {
-                  console.error(err);
-                  setToast({
-                    message: "Failed to start AI suggestions generation pipeline.",
-                    type: MessageBarType.error
-                  });
-                }
+              //     setAiBatchStatus("");
+              //     setToast({
+              //       message: "AI redaction suggestions generation started for all documents.",
+              //       type: MessageBarType.success
+              //     });
+              //   } catch (err) {
+              //     console.error(err);
+              //     setToast({
+              //       message: "Failed to start AI suggestions generation pipeline.",
+              //       type: MessageBarType.error
+              //     });
+              //   }
 
-                setIsAiBatchRunning(false);
-              })}
+              //   setIsAiBatchRunning(false);
+              // })}
             />
 
             <DefaultButton
@@ -1797,8 +1851,8 @@ export default function ProjectHome({
             </div>
           </PivotItem>
 
-          {/* STATS TAB */}
-          <PivotItem headerText="Stats">
+          {/* DETAILS TAB */}
+          <PivotItem headerText="Details">
             <h3>Project Summary</h3>
             <p>Total documents: {projectSummary?.documents.length ?? 0}</p>
             <p>Total redactions: {projectSummary?.documents.reduce((a, b) => a + b.redactions, 0)}</p>

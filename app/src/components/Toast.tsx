@@ -15,7 +15,7 @@ export default function Toast({ message, type = MessageBarType.success, onDismis
         bottom: 20,
         right: 20,
         maxWidth: 340,
-        zIndex: 6000,
+        zIndex: 200000, // Raise toast notifications over everything else (including project panels)
       }}
     >
       <MessageBar
