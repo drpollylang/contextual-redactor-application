@@ -613,6 +613,10 @@ export default function ProjectHome({
     return;    // MUST return void (not Promise, not null)
   };
 
+  const showToast = (message: string, type: MessageBarType = MessageBarType.success) => {
+    setToast({ message, type });
+  };
+
   /** Load all user projects */
   useEffect(() => {
     (async () => {
@@ -798,10 +802,33 @@ export default function ProjectHome({
   /** Drag and drop uplooad handlers */
   const handleDropUpload = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
+
+    
+    if (!selectedProject) return;
+
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type === "application/pdf");
+    if (files.length === 0) {
+      showToast("Only PDF files can be uploaded.", MessageBarType.warning);
+      return;
+    }
+
     setIsUploading(true);
-    const files = Array.from(e.dataTransfer.files);
-    await uploadDocuments(userId, selectedProject!.id, files);
+   
+    try {
+        await uploadDocuments(userId, selectedProject.id, files);
+
+        showToast(`${files.length} file(s) uploaded successfully`, MessageBarType.success);
+
+        const summary = await loadProjectSummary(userId, selectedProject.id);
+        setProjectSummary(summary);
+      } catch (err) {
+        console.error(err);
+        showToast("Upload failed.", MessageBarType.error);
+      }
+
     setIsUploading(false);
+
   };
 
   // const handleUploadFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -932,7 +959,7 @@ export default function ProjectHome({
       downloadBlob(zipBlob, `${selectedProject.name}.zip`);
 
       setToast({
-        message: "Redacted ZIP downloaded.",
+        message: "Redacted ZIP downloaded successfully.",
         type: MessageBarType.success
       });
 
@@ -1710,13 +1737,13 @@ export default function ProjectHome({
 
                   setAiBatchStatus("");
                   setToast({
-                    message: "AI redaction suggestions started for all documents.",
+                    message: "AI redaction suggestions generation started for all documents.",
                     type: MessageBarType.success
                   });
                 } catch (err) {
                   console.error(err);
                   setToast({
-                    message: "Failed to start AI suggestions.",
+                    message: "Failed to start AI suggestions generation pipeline.",
                     type: MessageBarType.error
                   });
                 }
@@ -1739,7 +1766,7 @@ export default function ProjectHome({
               <Spinner label="Uploading…" style={{ marginBottom: 16 }} />
             )}
             <div
-              onDrop={handleDropUpload}
+              onDrop={async (e) => handleDropUpload(e)}
               onDragOver={(e) => e.preventDefault()}
               style={{
                 border: "2px dashed #888",
