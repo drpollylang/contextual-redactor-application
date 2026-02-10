@@ -647,10 +647,11 @@ export default function ProjectHome({
         },
         grid: {
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: "28px",
+          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+          gap: "32px",
           padding: "0 40px 60px 40px",
-          justifyItems: "center"
+          justifyItems: "center",
+          alignItems: "start"
         },
         card: {
           background: theme.palette.white,
@@ -1282,6 +1283,7 @@ export default function ProjectHome({
                   background: "white",
                   borderRadius: 16,
                   padding: 20,
+                  margin: "0 auto",
                   boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
                   transition: "transform 0.15s ease, box-shadow 0.15s ease",
                   cursor: "pointer",
