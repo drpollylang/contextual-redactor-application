@@ -496,6 +496,7 @@ import {
 } from "../lib/pdfRedactor";
 
 import { loadPdfDocumentFromUrl, downloadBlob, redactedName } from "../screens/ProjectWorkspace"; // IF exposed, otherwise see below
+import SettingsPage from "../screens/SettingsPage";
 // import { downloadBlob, redactedName } from "../lib/blobPersist";
 
 /** --- Types --- */
@@ -576,6 +577,8 @@ export default function ProjectHome({
 
   const [isAiBatchRunning, setIsAiBatchRunning] = useState(false);
   const [aiBatchStatus, setAiBatchStatus] = useState("");
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
@@ -1176,7 +1179,8 @@ export default function ProjectHome({
               iconProps={{ iconName: "Settings" }}
               title="Settings"
               ariaLabel="Settings"
-              onClick={() => navigate("/settings")}
+              // onClick={() => navigate("/settings")}
+              onClick={() => setIsSettingsOpen(true)}
             />
           </TooltipHost>
           <Persona
@@ -1780,6 +1784,54 @@ export default function ProjectHome({
         />
       </div>
       </Panel>
+
+      {/* --- Settings page dialog --- */}
+      <Dialog
+        hidden={!isSettingsOpen}
+        onDismiss={() => setIsSettingsOpen(false)}
+        dialogContentProps={{
+          type: DialogType.largeHeader,
+          title: "Settings"
+        }}
+        modalProps={{
+          isBlocking: false,
+          styles: {
+            main: {
+              width: "800px",
+              maxWidth: "90vw",
+              borderRadius: 12,
+              padding: 0,
+              maxHeight: "90vh",
+              overflow: "hidden"
+            }
+          }
+        }}
+      >
+        <IconButton
+          iconProps={{ iconName: "ChromeClose" }}
+          ariaLabel="Close"
+          onClick={() => setIsSettingsOpen(false)}
+          styles={{
+            root: {
+              position: "absolute",
+              top: 10,
+              right: 10,
+              background: "transparent",
+              zIndex: 10
+            }
+          }}
+        />
+        {/* This wrapper gives correct padding and scroll */}
+        <div style={{ padding: "20px", maxHeight: "80vh", overflowY: "auto" }}>
+          <SettingsPage
+            rules={aiRules}
+            setRules={setAiRules}
+            userInstructions={userInstructions}
+            setUserInstructions={setUserInstructions}
+            availableCategories={[]}   // or pass real categories if desired
+          />
+        </div>
+      </Dialog>
     </div>
   );
 }
