@@ -22,7 +22,7 @@ export interface SettingsPageProps {
   // setHighlightFilters: React.Dispatch<React.SetStateAction<HighlightFilters>>;
 
   /** Categories seen in the current document (for filter chips) */
-  availableCategories: string[];
+  availableCategories?: string[];
 }
 
 /**

@@ -578,7 +578,7 @@ export default function ProjectHome({
   const [isAiBatchRunning, setIsAiBatchRunning] = useState(false);
   const [aiBatchStatus, setAiBatchStatus] = useState("");
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<null | { message: string; type: MessageBarType }>(null);
@@ -1180,7 +1180,7 @@ export default function ProjectHome({
               title="Settings"
               ariaLabel="Settings"
               // onClick={() => navigate("/settings")}
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => setShowSettings(true)}
             />
           </TooltipHost>
           <Persona
@@ -1786,7 +1786,7 @@ export default function ProjectHome({
       </Panel>
 
       {/* --- Settings page dialog --- */}
-      <Dialog
+      {/* <Dialog
         hidden={!isSettingsOpen}
         onDismiss={() => setIsSettingsOpen(false)}
         dialogContentProps={{
@@ -1820,9 +1820,9 @@ export default function ProjectHome({
               zIndex: 10
             }
           }}
-        />
+        /> */}
         {/* This wrapper gives correct padding and scroll */}
-        <div style={{ padding: "20px", maxHeight: "80vh", overflowY: "auto" }}>
+        {/* <div style={{ padding: "20px", maxHeight: "80vh", overflowY: "auto" }}>
           <SettingsPage
             rules={aiRules}
             setRules={setAiRules}
@@ -1831,7 +1831,50 @@ export default function ProjectHome({
             availableCategories={[]}   // or pass real categories if desired
           />
         </div>
-      </Dialog>
+      </Dialog> */}
+      {showSettings && (
+        <div
+          onClick={() => setShowSettings(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 5000
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "white",
+              padding: "24px 28px",
+              borderRadius: 8,
+              width: 640,
+              maxHeight: "80vh",
+              overflowY: "auto",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Settings</h2>
+
+            <SettingsPage
+              rules={aiRules}
+              setRules={setAiRules}
+              userInstructions={userInstructions}
+              setUserInstructions={setUserInstructions}
+              // availableCategories={availableCategories}
+            />
+
+            <div style={{ textAlign: "right", marginTop: 16 }}>
+              <DefaultButton text="Close" onClick={() => setShowSettings(false)} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
