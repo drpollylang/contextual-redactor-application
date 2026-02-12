@@ -699,6 +699,27 @@ export async function applyAiRedactionsToWorkingFile({
       if (!ai.position || !ai.position.boundingRect) { console.warn("[AI merge] Skipped highlight with missing position:", ai); 
         continue; 
       } 
+      const metadata = ai.metadata ?? null;
+      let reason = "AI";
+      let top_level_category = "";
+      if (metadata?.reasoning) {
+        const match = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
+        if (match) reason = match[1]; // e.g. PII
+        if (metadata.reasoning.includes(" PII ")) {
+          top_level_category = "PII";
+        }
+      }
+
+      // TODO: create more discrete categories for contextual prompt instructions 
+      // e.g. Sensitive Information (Medical), Sensitive Information (Police), SI (Personal Relationships), 
+      // SI (Employment), SI (Financial), SI (Personal e.g. sexual orientation/gender) 
+      let full_category = "";
+      const category = metadata?.category ?? "Unknown";
+      if (top_level_category != "") {
+        full_category = `${top_level_category} (${category})`;
+      } else {
+        full_category = category;
+      }
       const h: CommentedHighlight = { 
         id: ai.id ?? String(Math.random()).slice(2), 
         content: { text: ai.content?.text ?? "" }, 
@@ -706,8 +727,8 @@ export async function applyAiRedactionsToWorkingFile({
         position: ai.position, // <-- PASS THROUGH RAW 
         metadata: ai.metadata ?? null, 
         source: "ai", 
-        label: "AI generated", 
-        category: ai.metadata?.category ?? "AI", 
+        label: `AI generated: ${reason} – ${category}`, 
+        category: full_category,
         confidence: ai.metadata?.confidence 
       }; 
       aiHighlights.push(h); 
