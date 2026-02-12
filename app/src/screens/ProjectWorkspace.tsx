@@ -1186,15 +1186,88 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   //   })();
   // }, [isRestored, currentPdfId, pendingAiByPdfId, userId, projectId]);
 
+  // useEffect(() => {
+  //   (async () => {
+  //     if (!isRestored || !currentPdfId) return;
+
+  //     const utils = highlighterUtilsRef.current;
+  //     const viewerFn = utils?.getViewer?.bind(utils);
+  //     if (!viewerFn) return;
+
+  //     // wait for viewer
+  //     let viewerObj = null;
+  //     for (let i = 0; i < 40; i++) {
+  //       viewerObj = viewerFn();
+  //       if (viewerObj) break;
+  //       await new Promise(res => setTimeout(res, 100));
+  //     }
+  //     if (!viewerObj) {
+  //       console.warn("[AI merge] Viewer never ready");
+  //       return;
+  //     }
+
+  //     // wait for PDF document
+  //     const pdfDoc = await waitForPdfDocumentReady(pdfDocumentRef);
+  //     if (!pdfDoc) {
+  //       console.warn("[AI merge] pdfDocumentRef never ready");
+  //       return;
+  //     }
+
+  //     const payload = pendingAiByPdfId[currentPdfId];
+  //     if (!payload) return;
+
+  //     try {
+  //       await applyAiRedactionsPlugin({
+  //         payload,
+  //         currentPdfId,
+  //         viewer: viewerFn,
+  //         setAllHighlights,
+  //         setDocHighlights,
+  //         pushUndoState,
+  //         getSnapshot,
+  //         logHistory,
+  //         persist: persistHighlightsToDB,
+  //         pdfDoc,
+  //         currentScale: zoom ?? 1.0,
+  //       });
+
+  //       await saveWorkingSnapshotToBlob(userId, projectId!, currentPdfId);
+
+  //       setPendingAiByPdfId(prev => {
+  //         const cp = { ...prev };
+  //         delete cp[currentPdfId];
+  //         return cp;
+  //       });
+
+  //     } catch (err) {
+  //       console.error("[AI merge] Failed during plugin application", err);
+  //     }
+  //   })();
+  // }, [isRestored, currentPdfId, pendingAiByPdfId, userId, projectId]);
+
   useEffect(() => {
     (async () => {
       if (!isRestored || !currentPdfId) return;
 
-      const utils = highlighterUtilsRef.current;
-      const viewerFn = utils?.getViewer?.bind(utils);
+      // Wait for PDF.js doc to actually load (not null, not stale)
+      for (let i = 0; i < 40; i++) {
+        const pdf = pdfDocumentRef.current;
+        if (pdf && typeof pdf.numPages === "number" && pdf.numPages > 0) {
+          break;
+        }
+        await new Promise(res => setTimeout(res, 150));
+      }
+
+      const pdfDoc = pdfDocumentRef.current;
+      if (!pdfDoc || !pdfDoc.numPages) {
+        console.warn("[AI merge] pdfDocumentRef still not ready");
+        return;
+      }
+
+      // Now wait for viewer
+      const viewerFn = highlighterUtilsRef.current?.getViewer?.bind(highlighterUtilsRef.current);
       if (!viewerFn) return;
 
-      // wait for viewer
       let viewerObj = null;
       for (let i = 0; i < 40; i++) {
         viewerObj = viewerFn();
@@ -1206,44 +1279,35 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         return;
       }
 
-      // wait for PDF document
-      const pdfDoc = await waitForPdfDocumentReady(pdfDocumentRef);
-      if (!pdfDoc) {
-        console.warn("[AI merge] pdfDocumentRef never ready");
-        return;
-      }
-
+      // Now we can safely apply pending AI
       const payload = pendingAiByPdfId[currentPdfId];
       if (!payload) return;
 
-      try {
-        await applyAiRedactionsPlugin({
-          payload,
-          currentPdfId,
-          viewer: viewerFn,
-          setAllHighlights,
-          setDocHighlights,
-          pushUndoState,
-          getSnapshot,
-          logHistory,
-          persist: persistHighlightsToDB,
-          pdfDoc,
-          currentScale: zoom ?? 1.0,
-        });
+      console.log("[AI merge] APPLY for", currentPdfId);
 
-        await saveWorkingSnapshotToBlob(userId, projectId!, currentPdfId);
+      await applyAiRedactionsPlugin({
+        payload,
+        currentPdfId,
+        viewer: viewerFn,
+        setAllHighlights,
+        setDocHighlights,
+        pushUndoState,
+        getSnapshot,
+        logHistory,
+        persist: persistHighlightsToDB,
+        pdfDoc,                  // fallback scaling OK now
+        currentScale: zoom ?? 1,
+      });
 
-        setPendingAiByPdfId(prev => {
-          const cp = { ...prev };
-          delete cp[currentPdfId];
-          return cp;
-        });
+      await saveWorkingSnapshotToBlob(userId, projectId!, currentPdfId);
 
-      } catch (err) {
-        console.error("[AI merge] Failed during plugin application", err);
-      }
+      setPendingAiByPdfId(prev => {
+        const cp = { ...prev };
+        delete cp[currentPdfId];
+        return cp;
+      });
     })();
-  }, [isRestored, currentPdfId, pendingAiByPdfId, userId, projectId]);
+  }, [isRestored, currentPdfId, pendingAiByPdfId]);
 
   // useEffect(() => {
   //   let cancelled = false;
