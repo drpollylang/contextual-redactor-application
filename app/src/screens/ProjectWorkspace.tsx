@@ -799,6 +799,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   //   };
   // }
   // ===== Add near other refs/state =====
+  // const [viewportByPage, setViewportByPage] = useState<Record<number, { width: number; height: number }>>({});
   const [viewportByPage, setViewportByPage] = useState<Record<number, { width: number; height: number }>>({});
 
   // Precompute viewport sizes for all pages when pdfDocumentRef is set
@@ -806,6 +807,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
     (async () => {
       const pdf = pdfDocumentRef.current;
       if (!pdf) return;
+      console.log(viewportByPage)
 
       // Try to read the viewer's real scale; fall back to your zoom state or 1.0
       const viewerObj = highlighterUtilsRef.current?.getViewer?.();
@@ -1137,6 +1139,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
       if (!payload) return;
 
       try {
+        
         // Merge into React state (with undo/history) using your plugin:
         await applyAiRedactionsPlugin({
           payload,
@@ -1148,7 +1151,9 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
           getSnapshot,
           logHistory,
           persist: persistHighlightsToDB,
-          getViewportSize: (pn) => viewportByPage[pn] ?? null,
+          pdfDoc: pdfDocumentRef.current,
+          currentScale: zoom ?? 1.0,   // your viewer scale
+          // getViewportSize: (pn) => viewportByPage[pn] ?? null,
         });
 
         // Persist merged working snapshot to Blob immediately (no need to wait for 30s timer)
@@ -2430,6 +2435,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
             }
 
             console.log("[AI] Calling plugin...");
+            
             await applyAiRedactionsPlugin({
               payload: status.output,
               currentPdfId,
