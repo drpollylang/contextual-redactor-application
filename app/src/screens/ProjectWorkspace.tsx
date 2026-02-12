@@ -800,17 +800,17 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   // }
   // ===== Add near other refs/state =====
   // const [viewportByPage, setViewportByPage] = useState<Record<number, { width: number; height: number }>>({});
-  async function waitForPdfDocumentReady(pdfRef: any, maxAttempts = 40, delay = 100) {
-    for (let i = 0; i < maxAttempts; i++) {
-      const pdf = pdfRef.current;
-      if (pdf && typeof pdf.numPages === "number" && pdf.numPages > 0) {
-        return pdf;
-      }
-      await new Promise(res => setTimeout(res, delay));
-    }
-    console.warn("[AI Plugin] pdfDocumentRef never became ready.");
-    return null;
-  }
+  // async function waitForPdfDocumentReady(pdfRef: any, maxAttempts = 40, delay = 100) {
+  //   for (let i = 0; i < maxAttempts; i++) {
+  //     const pdf = pdfRef.current;
+  //     if (pdf && typeof pdf.numPages === "number" && pdf.numPages > 0) {
+  //       return pdf;
+  //     }
+  //     await new Promise(res => setTimeout(res, delay));
+  //   }
+  //   console.warn("[AI Plugin] pdfDocumentRef never became ready.");
+  //   return null;
+  // }
   
   const [viewportByPage, setViewportByPage] = useState<Record<number, { width: number; height: number }>>({});
 
