@@ -834,7 +834,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
     console.log("[AI merge] Raw AI payload (keys):", Object.keys(aiPayload));
 
     const items = (aiPayload?.allHighlights ?? []).map((s: any) => {
-      const pageNum = s?.position?.boundingRect?.pageNumber ?? 1;
+      // const pageNum = s?.position?.boundingRect?.pageNumber ?? 1;
 
       // Rects are normalized x,y,width,height already
       const rects = (s?.position?.rects ?? []).map((r: any) => ({
@@ -844,12 +844,22 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         height: Number(r.height) || 0
       }));
 
+      // const b = s.position.boundingRect;
+
+      // const boundingRect = {
+      //   x: Number(b.x),
+      //   y: Number(b.y),
+      //   width: Number(b.width),
+      //   height: Number(b.height),
+      //   pageNumber: s.pageNumber
+      // };
+
       const item = {
         id: s?.id,
         content: { text: s?.content?.text ?? "" },
         position: {
-          boundingRect: { x: 0, y: 0, width: 1, height: 1, pageNumber: pageNum },
-          rects
+          boundingRect: s.position.boundingRect,
+          rects,
         },
         metadata: s?.metadata ?? null
       };
