@@ -756,48 +756,94 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   const [pendingAiByPdfId, setPendingAiByPdfId] = useState<Record<string, AiRedactionPayload>>({});
 
   // Convert backend AI payload (suggestions) -> plugin payload (AiRedactionPayload)
+  // function toPluginPayloadFromAiSuggestions(
+  //   aiPayload: any,
+  //   pdfId: string,
+  //   fileName: string
+  // ): AiRedactionPayload {
+  //   // aiPayload.suggestions elements are assumed shape:
+  //   // { id?, content:{text}, position:{ boundingRect{pageNumber}, rects:[{x1,y1,x2,y2} or {x,y,width,height}] }, metadata? }
+  //   const items = (aiPayload?.suggestions ?? []).map((s: any) => {
+  //     const pageNum = s?.position?.boundingRect?.pageNumber ?? 1;
+
+  //     // Normalize rects: plugin expects rects[] = { x, y, width, height } (normalized 0..1)
+  //     const rects = (s?.position?.rects ?? []).map((r: any) => {
+  //       if (typeof r.x === "number" && typeof r.width === "number") {
+  //         // already x,y,width,height (normalized)
+  //         return { x: r.x, y: r.y, width: r.width, height: r.height };
+  //       }
+  //       // convert from x1,y1,x2,y2 normalized form if that's what backend returns
+  //       const x1 = r?.x1 ?? 0, y1 = r?.y1 ?? 0;
+  //       const x2 = r?.x2 ?? x1, y2 = r?.y2 ?? y1;
+  //       return { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) };
+  //     });
+
+  //     return {
+  //       id: s?.id,
+  //       content: { text: s?.content?.text ?? "" },
+  //       position: {
+  //         boundingRect: { x: 0, y: 0, width: 1, height: 1, pageNumber: pageNum }, // only pageNumber is used by plugin
+  //         rects
+  //       },
+  //       metadata: s?.metadata ?? null
+  //     };
+  //   });
+
+  //   // The plugin uses: payload.allHighlights array (normalized) + ignores activeHighlights here
+  //   return {
+  //     pdfId,
+  //     fileName,
+  //     allHighlights: items,
+  //     activeHighlights: [],
+  //     savedAt: new Date().toISOString()
+  //   };
+  // }
   function toPluginPayloadFromAiSuggestions(
     aiPayload: any,
     pdfId: string,
     fileName: string
   ): AiRedactionPayload {
-    // aiPayload.suggestions elements are assumed shape:
-    // { id?, content:{text}, position:{ boundingRect{pageNumber}, rects:[{x1,y1,x2,y2} or {x,y,width,height}] }, metadata? }
-    const items = (aiPayload?.suggestions ?? []).map((s: any) => {
+    console.log("[AI merge] Raw AI payload (keys):", Object.keys(aiPayload));
+
+    const items = (aiPayload?.allHighlights ?? []).map((s: any) => {
       const pageNum = s?.position?.boundingRect?.pageNumber ?? 1;
 
-      // Normalize rects: plugin expects rects[] = { x, y, width, height } (normalized 0..1)
-      const rects = (s?.position?.rects ?? []).map((r: any) => {
-        if (typeof r.x === "number" && typeof r.width === "number") {
-          // already x,y,width,height (normalized)
-          return { x: r.x, y: r.y, width: r.width, height: r.height };
-        }
-        // convert from x1,y1,x2,y2 normalized form if that's what backend returns
-        const x1 = r?.x1 ?? 0, y1 = r?.y1 ?? 0;
-        const x2 = r?.x2 ?? x1, y2 = r?.y2 ?? y1;
-        return { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) };
-      });
+      // Rects are normalized x,y,width,height already
+      const rects = (s?.position?.rects ?? []).map((r: any) => ({
+        x: Number(r.x) || 0,
+        y: Number(r.y) || 0,
+        width: Number(r.width) || 0,
+        height: Number(r.height) || 0
+      }));
 
-      return {
+      const item = {
         id: s?.id,
         content: { text: s?.content?.text ?? "" },
         position: {
-          boundingRect: { x: 0, y: 0, width: 1, height: 1, pageNumber: pageNum }, // only pageNumber is used by plugin
+          boundingRect: { x: 0, y: 0, width: 1, height: 1, pageNumber: pageNum },
           rects
         },
         metadata: s?.metadata ?? null
       };
+
+      return item;
     });
 
-    // The plugin uses: payload.allHighlights array (normalized) + ignores activeHighlights here
-    return {
+    const payload: AiRedactionPayload = {
       pdfId,
       fileName,
       allHighlights: items,
       activeHighlights: [],
       savedAt: new Date().toISOString()
     };
+
+    console.log("[AI merge] Plugin-compatible payload size:", payload.allHighlights.length);
+    return payload;
   }
+
+  useEffect(() => {
+    console.log("[AI merge] pending map keys:", Object.keys(pendingAiByPdfId));
+  }, [pendingAiByPdfId]);
 
   const reloadHighlights = async () => {
     let cancelled = false;
@@ -815,7 +861,8 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         setZoom(prefs.zoom);
         setHighlightPen(prefs.highlightPenEnabled);
       }
-      const effectiveUserId = prefs?.userIdentity ?? "anonymous";
+      // const effectiveUserId = prefs?.userIdentity ?? "anonymous";
+      const effectiveUserId = userId;
 
       // 2) List docs
       const docs = await listUserDocuments(effectiveUserId);
@@ -872,12 +919,18 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         try {
           const baseName = fileName.replace(/\.pdf$/i, "");
           const aiPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
+          console.log("[AI merge] Fetching AI file:", aiPath);
           const aiPayload = await fetchJson<any>("files", aiPath);
           if (aiPayload && Array.isArray(aiPayload.allHighlights) && aiPayload.allHighlights.length > 0) {
+            const payloadForPlugin = toPluginPayloadFromAiSuggestions(aiPayload, pdfId, fileName);
             setPendingAiByPdfId(prev => ({
               ...prev,
-              [pdfId]: toPluginPayloadFromAiSuggestions(aiPayload, pdfId, fileName)
+              [pdfId]: payloadForPlugin
             }));
+            console.log("[AI merge] Queued pending AI for", pdfId, "count:", aiPayload.allHighlights.length);
+          }
+          else {
+            console.log("[AI merge] No allHighlights found in:", aiPath);
           }
         } catch (e) {
           console.warn("[AI merge] No ai_redactions or fetch failed for", fileName, e);
@@ -956,6 +1009,81 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
     }
   }, [projectId]);
 
+  function isNormalizedRect(b: any) {
+    // heuristics: normalized rects have x,y,width,height in [0,1] and no x1/y1
+    return (
+      b &&
+      typeof b.x === "number" &&
+      typeof b.y === "number" &&
+      typeof b.width === "number" &&
+      typeof b.height === "number" &&
+      b.x >= 0 && b.x <= 1 &&
+      b.y >= 0 && b.y <= 1 &&
+      b.width <= 1.0001 &&
+      b.height <= 1.0001 &&
+      b.pageNumber >= 1
+    );
+  }
+
+  async function upgradeNormalizedToViewportForDoc(pdfId: string) {
+    const utils = highlighterUtilsRef.current;
+    const viewerObj = utils?.getViewer?.();
+    if (!viewerObj) return;
+
+    const all = allHighlights[pdfId] ?? [];
+    let changed = false;
+
+    const upgraded = all.map(h => {
+      const br = (h as any)?.position?.boundingRect;
+      if (!isNormalizedRect(br)) return h;
+
+      const pageView = viewerObj.getPageView((br.pageNumber ?? 1) - 1);
+      if (!pageView) return h;
+
+      const vpW = pageView.viewport.width;
+      const vpH = pageView.viewport.height;
+
+      const x1 = br.x * vpW;
+      const y1 = br.y * vpH;
+      const x2 = x1 + br.width * vpW;
+      const y2 = y1 + br.height * vpH;
+
+      const scaledBR = { x1, y1, x2, y2, width: vpW, height: vpH, pageNumber: br.pageNumber ?? 1 };
+      changed = true;
+
+      return {
+        ...h,
+        position: {
+          ...h.position,
+          boundingRect: scaledBR,
+          rects: [{ ...scaledBR }]
+        }
+      };
+    });
+
+    if (changed) {
+      console.log("[UPGRADE] Converted normalized → viewport for", pdfId, "(count:", upgraded.length, ")");
+      setAllHighlights(prev => ({ ...prev, [pdfId]: upgraded }));
+
+      // Update actives to preserve selection
+      const actives = (docHighlights[pdfId] ?? []).map(a => a.id);
+      const newActiveList = upgraded.filter(u => actives.includes(u.id));
+      setDocHighlights(prev => ({ ...prev, [pdfId]: newActiveList }));
+
+      // Persist to Dexie and Blob
+      persistHighlightsToDB(pdfId);
+      await saveWorkingSnapshotToBlob(userId, projectId!, pdfId);
+    }
+  }
+
+  useEffect(() => {
+    (async () => {
+      if (!isRestored || !currentPdfId) return;
+      // try upgrading any normalized entries already in working/*.json
+      await upgradeNormalizedToViewportForDoc(currentPdfId);
+    })();
+  }, [isRestored, currentPdfId]);
+
   // Apply pending AI suggestions as soon as the viewer is available for the current doc.
   // This uses your plugin to scale to viewport, dedupe, merge into all+doc, and persist.
   useEffect(() => {
@@ -967,7 +1095,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
       if (!viewer) return;
 
       const payload = pendingAiByPdfId[currentPdfId];
-      console.log("[AI merge] Checking for pending AI payload for", currentPdfId, payload);
+      console.log("[AI merge] Checking for pending AI payload for", currentPdfId, !!payload ? "FOUND": "NONE");
       if (!payload) return;
 
       try {
