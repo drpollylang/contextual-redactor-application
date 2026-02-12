@@ -14,7 +14,7 @@ import FiltersPage, { HighlightFilters as FiltersHighlightFilters } from "./Filt
 // import SettingsPage, { STATIC_AI_RULES } from "./SettingsPage";
 import SettingsPage from "./SettingsPage";
 import HistoryTimeline from "./HistoryTimeline";
-import { applyAiRedactionsPlugin } from "../plugins/applyAiRedactionsPlugin";
+import { applyAiRedactionsPlugin, AiRedactionPayload } from "../plugins/applyAiRedactionsPlugin";
 import { buildPdfId } from "../helpers/utils"
 import { removeDocument } from "../helpers/documentHelpers";
 import { buildRedactedBlobFromPdfjsDoc, groupActiveRectsByPage } from "../lib/pdfRedactor";
@@ -752,6 +752,53 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   //   })();
   // }, []);
 
+  // ===== Pending AI merge queue (pdfId -> payload) =====
+  const [pendingAiByPdfId, setPendingAiByPdfId] = useState<Record<string, AiRedactionPayload>>({});
+
+  // Convert backend AI payload (suggestions) -> plugin payload (AiRedactionPayload)
+  function toPluginPayloadFromAiSuggestions(
+    aiPayload: any,
+    pdfId: string,
+    fileName: string
+  ): AiRedactionPayload {
+    // aiPayload.suggestions elements are assumed shape:
+    // { id?, content:{text}, position:{ boundingRect{pageNumber}, rects:[{x1,y1,x2,y2} or {x,y,width,height}] }, metadata? }
+    const items = (aiPayload?.suggestions ?? []).map((s: any) => {
+      const pageNum = s?.position?.boundingRect?.pageNumber ?? 1;
+
+      // Normalize rects: plugin expects rects[] = { x, y, width, height } (normalized 0..1)
+      const rects = (s?.position?.rects ?? []).map((r: any) => {
+        if (typeof r.x === "number" && typeof r.width === "number") {
+          // already x,y,width,height (normalized)
+          return { x: r.x, y: r.y, width: r.width, height: r.height };
+        }
+        // convert from x1,y1,x2,y2 normalized form if that's what backend returns
+        const x1 = r?.x1 ?? 0, y1 = r?.y1 ?? 0;
+        const x2 = r?.x2 ?? x1, y2 = r?.y2 ?? y1;
+        return { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) };
+      });
+
+      return {
+        id: s?.id,
+        content: { text: s?.content?.text ?? "" },
+        position: {
+          boundingRect: { x: 0, y: 0, width: 1, height: 1, pageNumber: pageNum }, // only pageNumber is used by plugin
+          rects
+        },
+        metadata: s?.metadata ?? null
+      };
+    });
+
+    // The plugin uses: payload.allHighlights array (normalized) + ignores activeHighlights here
+    return {
+      pdfId,
+      fileName,
+      allHighlights: items,
+      activeHighlights: [],
+      savedAt: new Date().toISOString()
+    };
+  }
+
   const reloadHighlights = async () => {
     let cancelled = false;
 
@@ -812,6 +859,22 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         }
 
         const pdfId = buildPdfId(projectId!, fileName);
+
+        // ---- Queue AI suggestions for this PDF (if any)
+        try {
+          const aiPath = `${effectiveUserId}/${projectId}/ai_redactions/${fileName}.json`;
+          const aiPayload = await fetchJson<any>("files", aiPath);
+          if (aiPayload && Array.isArray(aiPayload.suggestions) && aiPayload.suggestions.length > 0) {
+            setPendingAiByPdfId(prev => ({
+              ...prev,
+              [pdfId]: toPluginPayloadFromAiSuggestions(aiPayload, pdfId, fileName)
+            }));
+          }
+        } catch (e) {
+          console.warn("[AI merge] No ai_redactions or fetch failed for", fileName, e);
+        }
+
+        // In-memory viewer state
         highlightsMap[pdfId] = all;
         activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
 
@@ -881,6 +944,51 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
       reloadHighlights();
     }
   }, [projectId]);
+
+  // Apply pending AI suggestions as soon as the viewer is available for the current doc.
+  // This uses your plugin to scale to viewport, dedupe, merge into all+doc, and persist.
+  useEffect(() => {
+    (async () => {
+      if (!isRestored || !currentPdfId) return;
+
+      const utils = highlighterUtilsRef.current;
+      const viewer = utils?.getViewer?.bind(utils);
+      if (!viewer) return;
+
+      const payload = pendingAiByPdfId[currentPdfId];
+      if (!payload) return;
+
+      try {
+        // Merge into React state (with undo/history) using your plugin:
+        await applyAiRedactionsPlugin({
+          payload,
+          currentPdfId,
+          viewer,
+          setAllHighlights,
+          setDocHighlights,
+          pushUndoState,
+          getSnapshot,
+          logHistory,
+          persist: persistHighlightsToDB,
+        });
+
+        // Persist merged working snapshot to Blob immediately (no need to wait for 30s timer)
+        await saveWorkingSnapshotToBlob(userId, projectId!, currentPdfId);
+
+        // Clear queue for this pdfId so we don't re-apply
+        setPendingAiByPdfId(prev => {
+          const cp = { ...prev };
+          delete cp[currentPdfId!];
+          return cp;
+        });
+
+        // Optional: toast/log
+        console.log("[AI merge] Applied pending AI and saved working snapshot for", currentPdfId);
+      } catch (e) {
+        console.error("[AI merge] Failed to apply pending AI:", e);
+      }
+    })();
+  }, [isRestored, currentPdfId, pendingAiByPdfId, userId, projectId]);
 
   // useEffect(() => {
   //   let cancelled = false;
