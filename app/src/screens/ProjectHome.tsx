@@ -484,7 +484,8 @@ import { removeDocument, downloadDocument } from "../helpers/documentHelpers";
 import { 
   // runAiRedactionForProject, 
   runAiRedactionForProjectParallel,
-  applyAiRedactionsToWorkingFile } from "../helpers/aiRedactionHelpers";
+  // applyAiRedactionsToWorkingFile 
+  } from "../helpers/aiRedactionHelpers";
 import Toast from "../components/Toast";
 import JSZip from "jszip";
 
@@ -887,12 +888,12 @@ export default function ProjectHome({
             ]);
             showToast(`AI suggestions completed for ${fileName}`);
 
-            await applyAiRedactionsToWorkingFile({
-              userId,
-              projectId: selectedProject.id,
-              fileName,
-              aiPayload: output   // this is Durable output
-            });
+            // await applyAiRedactionsToWorkingFile({
+            //   userId,
+            //   projectId: selectedProject.id,
+            //   fileName,
+            //   aiPayload: output   // this is Durable output
+            // });
 
             showToast(`AI suggestions saved for ${fileName}`);
           },
