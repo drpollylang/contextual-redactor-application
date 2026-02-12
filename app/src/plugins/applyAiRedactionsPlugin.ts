@@ -218,6 +218,7 @@
 
 import { CommentedHighlight } from "../types";
 import { PdfHighlighterUtils } from "../react-pdf-highlighter-extended";
+import { PDFDict } from "pdf-lib";
 
 // ----- Types for AI output -----
 export type NormalizedRect = {
@@ -462,6 +463,8 @@ export async function applyAiRedactionsPlugin({
       newHighlights.push(h);
     }
   }
+
+  console.log("[AI Plugin] Processed scaled highlights for ", currentPdfId, " : ", newHighlights);
 
   if (newHighlights.length === 0) {
     console.warn("[AI Plugin] After processing, 0 scaled highlights");
