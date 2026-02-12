@@ -257,10 +257,29 @@ export type AiRedactionPayload = {
 export function normalizedToViewportRect(
   norm: NormalizedRect,
   pageNumber: number,
-  viewerObj: any
+  viewerObj: any,
+  getViewportSize?: (pn: number) => { width: number; height: number } | null
 ) {
+  
+  let width: number | undefined;
+  let height: number | undefined;
+
   const pageView = viewerObj.getPageView(pageNumber - 1);
-  if (!pageView) return null;
+
+  if (pageView?.viewport) {
+    width = pageView.viewport.width;
+    height = pageView.viewport.height;
+  } else if (getViewportSize) {
+    const dims = getViewportSize(pageNumber);
+    if (dims) {
+      width = dims.width;
+      height = dims.height;
+    }
+  }
+
+  if (!width || !height) return null;
+
+  // if (!pageView) return null;
 
   const viewport = pageView.viewport;
 
@@ -324,6 +343,11 @@ type ApplyAiRedactionsArgs = {
   ) => void;
 
   persist: (pdfId: string) => void;
+
+  
+  // NEW: fallback viewport getter
+  getViewportSize?: (pageNumber: number) => { width: number; height: number } | null;
+
 };
 
 
@@ -336,7 +360,8 @@ export async function applyAiRedactionsPlugin({
   pushUndoState,
   getSnapshot,
   logHistory,
-  persist
+  persist,
+  getViewportSize
 }: ApplyAiRedactionsArgs) {
   console.log("[AI Plugin] START", payload);
 
@@ -384,7 +409,7 @@ export async function applyAiRedactionsPlugin({
 
     // Each normalized rect → scaled viewport rect
     for (const normRect of rects) {
-      const scaled = normalizedToViewportRect(normRect, pageNumber, viewerObj);
+      const scaled = normalizedToViewportRect(normRect, pageNumber, viewerObj, getViewportSize);
       if (!scaled) continue;
 
       // const h: CommentedHighlight = {

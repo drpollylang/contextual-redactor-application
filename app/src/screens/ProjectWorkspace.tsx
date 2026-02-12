@@ -798,6 +798,34 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   //     savedAt: new Date().toISOString()
   //   };
   // }
+  // ===== Add near other refs/state =====
+  const [viewportByPage, setViewportByPage] = useState<Record<number, { width: number; height: number }>>({});
+
+  // Precompute viewport sizes for all pages when pdfDocumentRef is set
+  useEffect(() => {
+    (async () => {
+      const pdf = pdfDocumentRef.current;
+      if (!pdf) return;
+
+      // Try to read the viewer's real scale; fall back to your zoom state or 1.0
+      const viewerObj = highlighterUtilsRef.current?.getViewer?.();
+      const currentScale =
+        (viewerObj && (viewerObj._currentScale || viewerObj.currentScale)) ||
+        (zoom ?? 1.0);
+
+      const entries: Array<[number, { width: number; height: number }]> = [];
+      for (let pn = 1; pn <= pdf.numPages; pn++) {
+        const page = await pdf.getPage(pn);
+        const vp = page.getViewport({ scale: currentScale });
+        entries.push([pn, { width: vp.width, height: vp.height }]);
+      }
+      setViewportByPage(Object.fromEntries(entries));
+      console.log("[Viewport] Precomputed viewport dims for pages:", Object.keys(Object.fromEntries(entries)));
+    })();
+    // Recompute when the document changes or zoom changes
+  }, [currentPdfId, zoom]);
+
+
   function toPluginPayloadFromAiSuggestions(
     aiPayload: any,
     pdfId: string,
@@ -1110,6 +1138,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
           getSnapshot,
           logHistory,
           persist: persistHighlightsToDB,
+          getViewportSize: (pn) => viewportByPage[pn] ?? null,
         });
 
         // Persist merged working snapshot to Blob immediately (no need to wait for 30s timer)
