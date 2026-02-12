@@ -800,6 +800,18 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   // }
   // ===== Add near other refs/state =====
   // const [viewportByPage, setViewportByPage] = useState<Record<number, { width: number; height: number }>>({});
+  async function waitForPdfDocumentReady(pdfRef: any, maxAttempts = 40, delay = 100) {
+    for (let i = 0; i < maxAttempts; i++) {
+      const pdf = pdfRef.current;
+      if (pdf && typeof pdf.numPages === "number" && pdf.numPages > 0) {
+        return pdf;
+      }
+      await new Promise(res => setTimeout(res, delay));
+    }
+    console.warn("[AI Plugin] pdfDocumentRef never became ready.");
+    return null;
+  }
+  
   const [viewportByPage, setViewportByPage] = useState<Record<number, { width: number; height: number }>>({});
 
   // Precompute viewport sizes for all pages when pdfDocumentRef is set
@@ -1126,50 +1138,109 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
 
   // Apply pending AI suggestions as soon as the viewer is available for the current doc.
   // This uses your plugin to scale to viewport, dedupe, merge into all+doc, and persist.
+  // useEffect(() => {
+  //   (async () => {
+  //     if (!isRestored || !currentPdfId) return;
+
+  //     const utils = highlighterUtilsRef.current;
+  //     const viewer = utils?.getViewer?.bind(utils);
+  //     if (!viewer) return;
+
+  //     const payload = pendingAiByPdfId[currentPdfId];
+  //     console.log("[AI merge] Checking for pending AI payload for", currentPdfId, !!payload ? "FOUND": "NONE");
+  //     if (!payload) return;
+
+  //     try {
+        
+  //       // Merge into React state (with undo/history) using your plugin:
+  //       await applyAiRedactionsPlugin({
+  //         payload,
+  //         currentPdfId,
+  //         viewer,
+  //         setAllHighlights,
+  //         setDocHighlights,
+  //         pushUndoState,
+  //         getSnapshot,
+  //         logHistory,
+  //         persist: persistHighlightsToDB,
+  //         pdfDoc: pdfDocumentRef.current,
+  //         currentScale: zoom ?? 1.0,   // your viewer scale
+  //         // getViewportSize: (pn) => viewportByPage[pn] ?? null,
+  //       });
+
+  //       // Persist merged working snapshot to Blob immediately (no need to wait for 30s timer)
+  //       await saveWorkingSnapshotToBlob(userId, projectId!, currentPdfId);
+
+  //       // Clear queue for this pdfId so we don't re-apply
+  //       setPendingAiByPdfId(prev => {
+  //         const cp = { ...prev };
+  //         delete cp[currentPdfId!];
+  //         return cp;
+  //       });
+
+  //       // Optional: toast/log
+  //       console.log("[AI merge] Applied pending AI and saved working snapshot for", currentPdfId);
+  //     } catch (e) {
+  //       console.error("[AI merge] Failed to apply pending AI:", e);
+  //     }
+  //   })();
+  // }, [isRestored, currentPdfId, pendingAiByPdfId, userId, projectId]);
+
   useEffect(() => {
     (async () => {
       if (!isRestored || !currentPdfId) return;
 
       const utils = highlighterUtilsRef.current;
-      const viewer = utils?.getViewer?.bind(utils);
-      if (!viewer) return;
+      const viewerFn = utils?.getViewer?.bind(utils);
+      if (!viewerFn) return;
+
+      // wait for viewer
+      let viewerObj = null;
+      for (let i = 0; i < 40; i++) {
+        viewerObj = viewerFn();
+        if (viewerObj) break;
+        await new Promise(res => setTimeout(res, 100));
+      }
+      if (!viewerObj) {
+        console.warn("[AI merge] Viewer never ready");
+        return;
+      }
+
+      // wait for PDF document
+      const pdfDoc = await waitForPdfDocumentReady(pdfDocumentRef);
+      if (!pdfDoc) {
+        console.warn("[AI merge] pdfDocumentRef never ready");
+        return;
+      }
 
       const payload = pendingAiByPdfId[currentPdfId];
-      console.log("[AI merge] Checking for pending AI payload for", currentPdfId, !!payload ? "FOUND": "NONE");
       if (!payload) return;
 
       try {
-        
-        // Merge into React state (with undo/history) using your plugin:
         await applyAiRedactionsPlugin({
           payload,
           currentPdfId,
-          viewer,
+          viewer: viewerFn,
           setAllHighlights,
           setDocHighlights,
           pushUndoState,
           getSnapshot,
           logHistory,
           persist: persistHighlightsToDB,
-          pdfDoc: pdfDocumentRef.current,
-          currentScale: zoom ?? 1.0,   // your viewer scale
-          // getViewportSize: (pn) => viewportByPage[pn] ?? null,
+          pdfDoc,
+          currentScale: zoom ?? 1.0,
         });
 
-        // Persist merged working snapshot to Blob immediately (no need to wait for 30s timer)
         await saveWorkingSnapshotToBlob(userId, projectId!, currentPdfId);
 
-        // Clear queue for this pdfId so we don't re-apply
         setPendingAiByPdfId(prev => {
           const cp = { ...prev };
-          delete cp[currentPdfId!];
+          delete cp[currentPdfId];
           return cp;
         });
 
-        // Optional: toast/log
-        console.log("[AI merge] Applied pending AI and saved working snapshot for", currentPdfId);
-      } catch (e) {
-        console.error("[AI merge] Failed to apply pending AI:", e);
+      } catch (err) {
+        console.error("[AI merge] Failed during plugin application", err);
       }
     })();
   }, [isRestored, currentPdfId, pendingAiByPdfId, userId, projectId]);

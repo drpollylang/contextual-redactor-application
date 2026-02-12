@@ -667,6 +667,11 @@ export async function applyAiRedactionsPlugin({
   currentScale = 1.0,
 }: ApplyAiRedactionsArgs) {
 
+  if (pdfDoc && pdfDoc._transport && pdfDoc._transport.destroyed) {
+    console.warn("[AI Plugin] PDF document destroyed before scaling. Aborting.");
+    return;
+  }
+
   console.log("[AI Plugin] START", payload);
 
   if (!currentPdfId) return console.warn("[AI Plugin] No currentPdfId — aborting");
