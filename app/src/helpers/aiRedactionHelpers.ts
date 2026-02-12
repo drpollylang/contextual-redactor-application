@@ -679,11 +679,11 @@ export async function applyAiRedactionsToWorkingFile({
       return; 
     } 
     
-    if (!Array.isArray(aiPayload.suggestions)) { 
-      console.warn("[applyAiRedactionsToWorkingFile] aiPayload.suggestions is missing or not an array."); 
+    if (!Array.isArray(aiPayload.allHighlights)) { 
+      console.warn("[applyAiRedactionsToWorkingFile] aiPayload.allHighlights is missing or not an array."); 
       return; 
     } 
-    console.log(`[applyAiRedactionsToWorkingFile] suggestions count: ${aiPayload.suggestions.length}`); 
+    console.log(`[applyAiRedactionsToWorkingFile] suggestions count: ${aiPayload.allHighlights.length}`); 
     // 1. Load existing working highlights file (if any) 
     const existing: { allHighlights: CommentedHighlight[]; 
     activeHighlights: string[] } | null = await fetchJsonFromBlob("files", highlightsPath); 
@@ -695,8 +695,8 @@ export async function applyAiRedactionsToWorkingFile({
     
     // 2. PASS-THROUGH — do NOT convert geometry here 
     const aiHighlights: CommentedHighlight[] = []; 
-    for (const ai of aiPayload.suggestions) { 
-      if (!ai.position || !ai.position.boundingRect) { console.warn("[AI merge] Skipped suggestion with missing position:", ai); 
+    for (const ai of aiPayload.allHighlights) { 
+      if (!ai.position || !ai.position.boundingRect) { console.warn("[AI merge] Skipped highlight with missing position:", ai); 
         continue; 
       } 
       const h: CommentedHighlight = { 
