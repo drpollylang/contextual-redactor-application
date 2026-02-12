@@ -874,10 +874,12 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         } catch (e) {
           console.warn("[AI merge] No ai_redactions or fetch failed for", fileName, e);
         }
+        console.log("Pending AI payloads after restore:", pendingAiByPdfId);
 
         // In-memory viewer state
         highlightsMap[pdfId] = all;
         activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
+        console.log("Highlight map before merge:", highlightsMap[pdfId]);
 
         uploaded.push({ id: pdfId, name: fileName, url: pdfUrl });
 
@@ -957,6 +959,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
       if (!viewer) return;
 
       const payload = pendingAiByPdfId[currentPdfId];
+      console.log("[AI merge] Checking for pending AI payload for", currentPdfId, payload);
       if (!payload) return;
 
       try {
