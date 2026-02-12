@@ -218,7 +218,7 @@
 
 import { CommentedHighlight } from "../types";
 import { PdfHighlighterUtils } from "../react-pdf-highlighter-extended";
-import { PDFDict } from "pdf-lib";
+// import { PDFDict } from "pdf-lib";
 
 // ----- Types for AI output -----
 export type NormalizedRect = {
