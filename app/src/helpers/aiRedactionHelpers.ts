@@ -12,27 +12,27 @@ import { buildPdfId } from "../helpers/utils";
 // Defensive converter: if the AI output already contains viewport dimensions (width/height),
 // we pass-through; otherwise, derive from pageWidth/pageHeight if present; as a final fallback,
 // use a canonical A4-ish ratio at scale ~1000px width to keep proportions deterministic.
-function normalizedToViewportRect(r: any, pageNumber: number) {
-  // Already scaled? Just ensure the pageNumber exists.
-  if (r && typeof r.width === "number" && typeof r.height === "number") {
-    return { ...r, pageNumber: r.pageNumber ?? pageNumber };
-  }
-  const pageW = r?.pageWidth ?? 1000;
-  const pageH = r?.pageHeight ?? Math.round((pageW * 11) / 8.5); // A4-ish fallback
-  const x1 = (r?.x1 ?? 0) * pageW;
-  const y1 = (r?.y1 ?? 0) * pageH;
-  const x2 = (r?.x2 ?? 0) * pageW;
-  const y2 = (r?.y2 ?? 0) * pageH;
-  return {
-    x1,
-    y1,
-    x2,
-    y2,
-    width: pageW,
-    height: pageH,
-    pageNumber,
-  };
-}
+// function normalizedToViewportRect(r: any, pageNumber: number) {
+//   // Already scaled? Just ensure the pageNumber exists.
+//   if (r && typeof r.width === "number" && typeof r.height === "number") {
+//     return { ...r, pageNumber: r.pageNumber ?? pageNumber };
+//   }
+//   const pageW = r?.pageWidth ?? 1000;
+//   const pageH = r?.pageHeight ?? Math.round((pageW * 11) / 8.5); // A4-ish fallback
+//   const x1 = (r?.x1 ?? 0) * pageW;
+//   const y1 = (r?.y1 ?? 0) * pageH;
+//   const x2 = (r?.x2 ?? 0) * pageW;
+//   const y2 = (r?.y2 ?? 0) * pageH;
+//   return {
+//     x1,
+//     y1,
+//     x2,
+//     y2,
+//     width: pageW,
+//     height: pageH,
+//     pageNumber,
+//   };
+// }
 
 
 /**
