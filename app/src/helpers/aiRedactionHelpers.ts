@@ -559,100 +559,188 @@ export async function runAiRedactionForProjectParallel({
 
 // import { normalizedToViewportRect } from "../plugins/applyAiRedactionsPlugin"; // create if needed
 
-export async function applyAiRedactionsToWorkingFile({
-  userId,
-  projectId,
-  fileName,
-  aiPayload
-}: {
-  userId: string;
-  projectId: string;
-  fileName: string;
-  aiPayload: any;
-}) {
-  const pdfId = buildPdfId(projectId, fileName);
-  const highlightsPath = `${userId}/${projectId}/working/${fileName}.highlights.json`;
+// export async function applyAiRedactionsToWorkingFile({
+//   userId,
+//   projectId,
+//   fileName,
+//   aiPayload
+// }: {
+//   userId: string;
+//   projectId: string;
+//   fileName: string;
+//   aiPayload: any;
+// }) {
+//   const pdfId = buildPdfId(projectId, fileName);
+//   const highlightsPath = `${userId}/${projectId}/working/${fileName}.highlights.json`;
 
-  type HighlightsPayload = {
-    allHighlights: CommentedHighlight[];
-    activeHighlights: string[];
-  };
+//   type HighlightsPayload = {
+//     allHighlights: CommentedHighlight[];
+//     activeHighlights: string[];
+//   };
 
-  // 1. Load existing highlights
-  const existing: HighlightsPayload | null = await fetchJsonFromBlob("files", highlightsPath);
-  const existingAll = existing?.allHighlights ?? [];
-  const existingActive = new Set(existing?.activeHighlights ?? []);
+//   // 1. Load existing highlights
+//   const existing: HighlightsPayload | null = await fetchJsonFromBlob("files", highlightsPath);
+//   const existingAll = existing?.allHighlights ?? [];
+//   const existingActive = new Set(existing?.activeHighlights ?? []);
 
-  // 2. Convert AI payload → CommentedHighlight[]
-  const aiHighlights: CommentedHighlight[] = [];
+//   // 2. Convert AI payload → CommentedHighlight[]
+//   const aiHighlights: CommentedHighlight[] = [];
 
-  for (const ai of aiPayload?.suggestions ?? []) {
-    const text = ai.content?.text ?? "";
-    const metadata = ai.metadata ?? null;
+//   for (const ai of aiPayload?.suggestions ?? []) {
+//     const text = ai.content?.text ?? "";
+//     const metadata = ai.metadata ?? null;
 
-    if (!ai.position || !ai.position.boundingRect) {
-      console.warn("Missing position in AI highlight:", ai);
-      continue;
-    }
+//     if (!ai.position || !ai.position.boundingRect) {
+//       console.warn("Missing position in AI highlight:", ai);
+//       continue;
+//     }
 
-    const { boundingRect, rects } = ai.position;
-    const pageNumber = boundingRect.pageNumber;
+//     const { boundingRect, rects } = ai.position;
+//     const pageNumber = boundingRect.pageNumber;
 
-    if (!Array.isArray(rects)) {
-      console.warn("AI rects not array:", rects);
-      continue;
-    }
+//     if (!Array.isArray(rects)) {
+//       console.warn("AI rects not array:", rects);
+//       continue;
+//     }
 
-    const scaledRects = rects
-      .map(r => normalizedToViewportRect(r, pageNumber))
-      .filter(Boolean);
+//     const scaledRects = rects
+//       .map(r => normalizedToViewportRect(r, pageNumber))
+//       .filter(Boolean);
 
-    if (!scaledRects.length) continue;
+//     if (!scaledRects.length) continue;
 
-    let reason = "AI";
-    let topLevel = "";
-    if (metadata?.reasoning) {
-      const m = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
-      if (m) reason = m[1];
-      if (metadata.reasoning.includes(" PII ")) topLevel = "PII";
-    }
+//     let reason = "AI";
+//     let topLevel = "";
+//     if (metadata?.reasoning) {
+//       const m = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
+//       if (m) reason = m[1];
+//       if (metadata.reasoning.includes(" PII ")) topLevel = "PII";
+//     }
 
-    const category = metadata?.category ?? "Unknown";
-    const fullCategory =
-      topLevel !== "" ? `${topLevel} (${category})` : category;
+//     const category = metadata?.category ?? "Unknown";
+//     const fullCategory =
+//       topLevel !== "" ? `${topLevel} (${category})` : category;
 
-    const h: CommentedHighlight = {
-      id: ai.id ?? String(Math.random()).slice(2),
-      content: { text },
-      comment: metadata?.reasoning ?? "",
-      position: {
-        boundingRect: scaledRects[0],
-        rects: scaledRects,
-      },
-      metadata,
-      source: "ai",
-      label: `AI generated: ${reason} – ${category}`,
-      category: fullCategory,
-      confidence: metadata?.confidence
-    };
+//     const h: CommentedHighlight = {
+//       id: ai.id ?? String(Math.random()).slice(2),
+//       content: { text },
+//       comment: metadata?.reasoning ?? "",
+//       position: {
+//         boundingRect: scaledRects[0],
+//         rects: scaledRects,
+//       },
+//       metadata,
+//       source: "ai",
+//       label: `AI generated: ${reason} – ${category}`,
+//       category: fullCategory,
+//       confidence: metadata?.confidence
+//     };
 
-    aiHighlights.push(h);
+//     aiHighlights.push(h);
+//   }
+
+//   // 3. Dedupe
+//   const existingIds = new Set(existingAll.map(h => h.id));
+//   const filteredAi = aiHighlights.filter(h => !existingIds.has(h.id));
+
+//   // 4. Merge
+//   const mergedAll = [...existingAll, ...filteredAi];
+//   const mergedActive = new Set([...existingActive, ...filteredAi.map(h => h.id)]);
+
+//   // 5. Update Dexie
+//   await db.pdfs.update(pdfId, {
+//     allHighlights: mergedAll,
+//     activeHighlights: Array.from(mergedActive)
+//   });
+
+//   // 6. Push to Blob Storage
+//   await saveWorkingSnapshotToBlob(userId, projectId, pdfId);
+// }
+
+export async function applyAiRedactionsToWorkingFile({ 
+  userId, 
+  projectId, 
+  fileName, 
+  aiPayload 
+}: { 
+  userId: string; 
+  projectId: string; 
+  fileName: string; 
+  aiPayload: any; }) { 
+    const pdfId = buildPdfId(projectId, fileName); 
+    const highlightsPath = `${userId}/${projectId}/working/${fileName}.highlights.json`; console.log("=== [applyAiRedactionsToWorkingFile] START ==="); 
+    console.log("pdfId:", pdfId); 
+    console.log("fileName:", fileName); 
+    console.log("aiPayload received:", aiPayload); 
+    
+    if (!aiPayload) { 
+      console.warn("[applyAiRedactionsToWorkingFile] aiPayload is NULL/undefined. Nothing to merge."); 
+      return; 
+    } 
+    
+    if (!Array.isArray(aiPayload.suggestions)) { 
+      console.warn("[applyAiRedactionsToWorkingFile] aiPayload.suggestions is missing or not an array."); 
+      return; 
+    } 
+    console.log(`[applyAiRedactionsToWorkingFile] suggestions count: ${aiPayload.suggestions.length}`); 
+    // 1. Load existing working highlights file (if any) 
+    const existing: { allHighlights: CommentedHighlight[]; 
+    activeHighlights: string[] } | null = await fetchJsonFromBlob("files", highlightsPath); 
+    console.log("[applyAiRedactionsToWorkingFile] existing working file:", existing); 
+    const existingAll = existing?.allHighlights ?? []; 
+    const existingActive = new Set(existing?.activeHighlights ?? []); 
+    console.log("[applyAiRedactionsToWorkingFile] existingAll count:", existingAll.length); 
+    console.log("[applyAiRedactionsToWorkingFile] existingActive count:", existingActive.size); 
+    
+    // 2. PASS-THROUGH — do NOT convert geometry here 
+    const aiHighlights: CommentedHighlight[] = []; 
+    for (const ai of aiPayload.suggestions) { 
+      if (!ai.position || !ai.position.boundingRect) { console.warn("[AI merge] Skipped suggestion with missing position:", ai); 
+        continue; 
+      } 
+      const h: CommentedHighlight = { 
+        id: ai.id ?? String(Math.random()).slice(2), 
+        content: { text: ai.content?.text ?? "" }, 
+        comment: ai.metadata?.reasoning ?? "", 
+        position: ai.position, // <-- PASS THROUGH RAW 
+        metadata: ai.metadata ?? null, 
+        source: "ai", 
+        label: "AI generated", 
+        category: ai.metadata?.category ?? "AI", 
+        confidence: ai.metadata?.confidence 
+      }; 
+      aiHighlights.push(h); 
+    } 
+    console.log("[applyAiRedactionsToWorkingFile] converted aiHighlights:", aiHighlights); 
+    
+    // 3. Dedupe by ID 
+    const existingIds = new Set(existingAll.map(h => h.id)); 
+    const filteredAi = aiHighlights.filter(h => !existingIds.has(h.id)); 
+    console.log("[applyAiRedactionsToWorkingFile] filteredAi after ID dedupe:", filteredAi); 
+    
+    if (filteredAi.length === 0) { 
+      console.warn("[applyAiRedactionsToWorkingFile] No NEW AI highlights to merge."); 
+    } 
+    
+    // 4. Merge arrays 
+    const mergedAll = [...existingAll, ...filteredAi]; 
+    const mergedActive = new Set([...existingActive, ...filteredAi.map(h => h.id)]); 
+    console.log("[applyAiRedactionsToWorkingFile] mergedAll length:", mergedAll.length); 
+    console.log("[applyAiRedactionsToWorkingFile] mergedActive size:", mergedActive.size); 
+    
+    // 5. Update Dexie 
+    console.log("[applyAiRedactionsToWorkingFile] Updating Dexie record..."); 
+    await db.pdfs.update(pdfId, { allHighlights: mergedAll, activeHighlights: Array.from(mergedActive) }); 
+    console.log("[applyAiRedactionsToWorkingFile] Dexie update complete."); 
+    
+    // 6. SAVE back to Blob storage as working snapshot 
+    console.log("[applyAiRedactionsToWorkingFile] Saving working snapshot to Blob..."); 
+    try { 
+      await saveWorkingSnapshotToBlob(userId, projectId, pdfId); 
+      console.log("[applyAiRedactionsToWorkingFile] Blob upload COMPLETE."); 
+    } catch (err) { 
+      console.error("[applyAiRedactionsToWorkingFile] Blob upload FAILED:", err); 
+    } 
+    
+    console.log("=== [applyAiRedactionsToWorkingFile] END ==="); 
   }
-
-  // 3. Dedupe
-  const existingIds = new Set(existingAll.map(h => h.id));
-  const filteredAi = aiHighlights.filter(h => !existingIds.has(h.id));
-
-  // 4. Merge
-  const mergedAll = [...existingAll, ...filteredAi];
-  const mergedActive = new Set([...existingActive, ...filteredAi.map(h => h.id)]);
-
-  // 5. Update Dexie
-  await db.pdfs.update(pdfId, {
-    allHighlights: mergedAll,
-    activeHighlights: Array.from(mergedActive)
-  });
-
-  // 6. Push to Blob Storage
-  await saveWorkingSnapshotToBlob(userId, projectId, pdfId);
-}
