@@ -862,7 +862,8 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
 
         // ---- Queue AI suggestions for this PDF (if any)
         try {
-          const aiPath = `${effectiveUserId}/${projectId}/ai_redactions/${fileName}.json`;
+          const baseName = fileName.replace(/\.pdf$/i, "");
+          const aiPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
           const aiPayload = await fetchJson<any>("files", aiPath);
           if (aiPayload && Array.isArray(aiPayload.suggestions) && aiPayload.suggestions.length > 0) {
             setPendingAiByPdfId(prev => ({

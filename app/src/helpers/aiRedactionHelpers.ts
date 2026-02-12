@@ -668,7 +668,8 @@ export async function applyAiRedactionsToWorkingFile({
   fileName: string; 
   aiPayload: any; }) { 
     const pdfId = buildPdfId(projectId, fileName); 
-    const highlightsPath = `${userId}/${projectId}/working/${fileName}.highlights.json`; console.log("=== [applyAiRedactionsToWorkingFile] START ==="); 
+    const highlightsPath = `${userId}/${projectId}/working/${fileName}.highlights.json`; 
+    console.log("=== [applyAiRedactionsToWorkingFile] START ==="); 
     console.log("pdfId:", pdfId); 
     console.log("fileName:", fileName); 
     console.log("aiPayload received:", aiPayload); 
