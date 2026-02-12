@@ -830,6 +830,14 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
       for (const d of docsForProject) {
         const fileName = d.fileName;
 
+        console.log(
+          "[DEBUG] Comparing projectId",
+          JSON.stringify(d.projectId),
+          "===",
+          JSON.stringify(projectId),
+          d.projectId === projectId
+        );
+
         // working > original
         let pdfUrl = null;
         if (d.workingPath) {
