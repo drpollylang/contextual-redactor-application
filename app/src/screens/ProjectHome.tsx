@@ -483,7 +483,8 @@ import { ProjectRecord } from "../helpers/projectHelpers";
 import { removeDocument, downloadDocument } from "../helpers/documentHelpers";
 import { 
   // runAiRedactionForProject, 
-  runAiRedactionForProjectParallel } from "../helpers/aiRedactionHelpers";
+  runAiRedactionForProjectParallel,
+  applyAiRedactionsToWorkingFile } from "../helpers/aiRedactionHelpers";
 import Toast from "../components/Toast";
 import JSZip from "jszip";
 
@@ -875,14 +876,25 @@ export default function ProjectHome({
           onDocStatus: (fileName, status) => {
             setAiStatusMap(prev => ({ ...prev, [fileName]: status }));
             setAiBatchStatus(`AI for ${fileName}: ${status}`);
+            
           },
+          
 
-          onDocComplete: (fileName) => {
+          onDocComplete: async (fileName, output) => {
             setAiBatchHistory(prev => [
               ...prev,
               { fileName, status: "completed", timestamp: Date.now() }
             ]);
             showToast(`AI suggestions completed for ${fileName}`);
+
+            await applyAiRedactionsToWorkingFile({
+              userId,
+              projectId: selectedProject.id,
+              fileName,
+              aiPayload: output   // this is Durable output
+            });
+
+            showToast(`AI suggestions saved for ${fileName}`);
           },
 
           onDocError: (fileName) => {
@@ -1311,7 +1323,8 @@ export default function ProjectHome({
         )
       }
     ],
-    []
+    // []
+    [aiStatusMap, selectedProject]
   );
 
   return (

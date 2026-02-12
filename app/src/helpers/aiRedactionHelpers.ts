@@ -2,6 +2,39 @@
 
 import { AiJobStatus } from "../mytypes/ai";
 
+import { fetchJsonFromBlob } from "../lib/blobFetch"; 
+import { saveWorkingSnapshotToBlob } from "../lib/blobPersist";
+import { CommentedHighlight } from "../types";  
+import { db } from "../storage";
+import { buildPdfId } from "../helpers/utils";
+
+
+// Defensive converter: if the AI output already contains viewport dimensions (width/height),
+// we pass-through; otherwise, derive from pageWidth/pageHeight if present; as a final fallback,
+// use a canonical A4-ish ratio at scale ~1000px width to keep proportions deterministic.
+function normalizedToViewportRect(r: any, pageNumber: number) {
+  // Already scaled? Just ensure the pageNumber exists.
+  if (r && typeof r.width === "number" && typeof r.height === "number") {
+    return { ...r, pageNumber: r.pageNumber ?? pageNumber };
+  }
+  const pageW = r?.pageWidth ?? 1000;
+  const pageH = r?.pageHeight ?? Math.round((pageW * 11) / 8.5); // A4-ish fallback
+  const x1 = (r?.x1 ?? 0) * pageW;
+  const y1 = (r?.y1 ?? 0) * pageH;
+  const x2 = (r?.x2 ?? 0) * pageW;
+  const y2 = (r?.y2 ?? 0) * pageH;
+  return {
+    x1,
+    y1,
+    x2,
+    y2,
+    width: pageW,
+    height: pageH,
+    pageNumber,
+  };
+}
+
+
 /**
  * Trigger AI redaction suggestions for a single PDF in storage.
  * This does NOT apply results. It only starts the Durable orchestration.
@@ -219,7 +252,7 @@ export async function runAiRedactionWithPolling({
     const statusUrl = new URL(statusQueryGetUri).toString();
 
     // 2. Poll Durable Functions status
-    return await new Promise<void>((resolve, reject) => {
+    return await new Promise<void>((resolve, reject) => { 
       const ctrl = new AbortController();
       const intervalMs = 2000;
 
@@ -338,7 +371,7 @@ export async function runAiRedactionForProjectParallel({
   concurrency?: number;
   signal?: AbortSignal;
   onDocStatus?: (fileName: string, status: AiJobStatus) => void;
-  onDocComplete?: (fileName: string) => void;
+  onDocComplete?: (fileName: string, output: any) => void;
   onDocError?: (fileName: string, err: any) => void;
   onBatchProgress?: (completed: number, total: number) => void;
 }) {
@@ -372,9 +405,9 @@ export async function runAiRedactionForProjectParallel({
           aiRules,
           userInstructions,
           onStatus: (s) => onDocStatus?.(fileName, s as AiJobStatus),
-          onComplete: () => {
+          onComplete: (payload) => {
             onDocStatus?.(fileName, "completed");
-            onDocComplete?.(fileName);
+            onDocComplete?.(fileName, payload);
 
             completed++;
             onBatchProgress?.(completed, total);
@@ -398,4 +431,228 @@ export async function runAiRedactionForProjectParallel({
 
     runNext();
   });
+}
+
+
+/**
+ * Merge AI suggestions into the working highlights file without deleting
+ * any existing manual / AI highlights.
+ */
+// export async function applyAiRedactionsToWorkingFile({
+//   userId,
+//   projectId,
+//   fileName,
+//   aiPayload
+// }: {
+//   userId: string;
+//   projectId: string;
+//   fileName: string;
+//   aiPayload: any;   // Durable Functions output
+// }) {
+//   // build working highlights path
+//   const pdfId = `${projectId}::${fileName}`;
+//   const highlightsPath = `${userId}/${projectId}/working/${fileName}.highlights.json`;
+
+//   type HighlightsPayload = {
+//     allHighlights: CommentedHighlight[];
+//     activeHighlights: string[];
+//   };
+
+//   // 1. Load existing highlight file (may be empty)
+//   const existing: HighlightsPayload | null = await fetchJson("files", highlightsPath);
+
+//   const existingAll = existing?.allHighlights ?? [];
+//   const existingActive = new Set(existing?.activeHighlights ?? []);
+
+//   // 2. Convert AI output to CommentedHighlight objects
+//   const aiHighlights: CommentedHighlight[] = (aiPayload?.suggestions ?? []).map((s: any) => ({
+//     id: s.id ?? crypto.randomUUID(),
+//     content: { text: s.text ?? "" },
+//     comment: s.comment ?? "",
+//     position: s.position,
+//     metadata: s.metadata ?? null,
+//     source: "ai",
+//     label: "AI Generated",
+//     category: s.category ?? "Sensitive Information (AI)"
+//   }));
+
+//   const text = ai.content?.text ?? "";
+//   const metadata = ai.metadata ?? null;
+
+//   if (!ai.position || !ai.position.boundingRect) {
+//     console.warn("[AI Plugin] Missing position in AI highlight:", ai);
+//     continue;
+//   }
+
+//   const { boundingRect, rects } = ai.position;
+//   const pageNumber = boundingRect.pageNumber;
+
+//   if (!Array.isArray(rects)) {
+//     console.warn("[AI Plugin] rects is not an array:", rects);
+//     continue;
+//   }
+
+//   // Each normalized rect → scaled viewport rect
+//   for (const normRect of rects) {
+//     const scaled = normalizedToViewportRect(normRect, pageNumber, viewerObj);
+//     if (!scaled) continue;
+
+//   let reason = "AI";
+//   let top_level_category = "";
+//   if (metadata?.reasoning) {
+//     const match = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
+//     if (match) reason = match[1]; // e.g. PII
+//     if (metadata.reasoning.includes(" PII ")) {
+//       top_level_category = "PII";
+//     }
+//   }
+
+//   // TODO: create more discrete categories for contextual prompt instructions 
+//   // e.g. Sensitive Information (Medical), Sensitive Information (Police), SI (Personal Relationships), 
+//   // SI (Employment), SI (Financial), SI (Personal e.g. sexual orientation/gender) 
+//   let full_category = "";
+//   const category = metadata?.category ?? "Unknown";
+//   if (top_level_category != "") {
+//     full_category = `${top_level_category} (${category})`;
+//   } else {
+//     full_category = category;
+//   }
+
+//   const h: CommentedHighlight = {
+//     id: ai.id ?? String(Math.random()).slice(2),
+//     content: { text },
+//     comment: metadata?.reasoning ?? "",
+//     position: {
+//       boundingRect: scaled,
+//       rects: [scaled]
+//     },
+//     metadata,
+//     source: "ai",
+//     label: `AI generated: ${reason} – ${category}`,
+//     category: full_category,
+//     confidence: metadata.confidence
+//   };
+
+//   // 3. ID-based dedupe (in case AI produces same IDs)
+//   const existingIds = new Set(existingAll.map(h => h.id));
+//   const filteredAi = aiHighlights.filter(h => !existingIds.has(h.id));
+
+//   // 4. Merge arrays
+//   const mergedAll = [...existingAll, ...filteredAi];
+//   const mergedActive = new Set([...existingActive, ...filteredAi.map(h => h.id)]);
+
+//   // Update Dexie
+//   await db.pdfs.update(pdfId, {
+//     allHighlights: mergedAll,
+//     activeHighlights: Array.from(mergedActive),
+//   });
+
+//   // 5. Save merged JSON back to Blob Storage
+//   await saveWorkingSnapshotToBlob(
+//     userId,
+//     projectId,
+//     pdfId,
+//     fileName
+//   );
+// }
+
+
+// import { normalizedToViewportRect } from "../plugins/applyAiRedactionsPlugin"; // create if needed
+
+export async function applyAiRedactionsToWorkingFile({
+  userId,
+  projectId,
+  fileName,
+  aiPayload
+}: {
+  userId: string;
+  projectId: string;
+  fileName: string;
+  aiPayload: any;
+}) {
+  const pdfId = buildPdfId(projectId, fileName);
+  const highlightsPath = `${userId}/${projectId}/working/${fileName}.highlights.json`;
+
+  type HighlightsPayload = {
+    allHighlights: CommentedHighlight[];
+    activeHighlights: string[];
+  };
+
+  // 1. Load existing highlights
+  const existing: HighlightsPayload | null = await fetchJsonFromBlob("files", highlightsPath);
+  const existingAll = existing?.allHighlights ?? [];
+  const existingActive = new Set(existing?.activeHighlights ?? []);
+
+  // 2. Convert AI payload → CommentedHighlight[]
+  const aiHighlights: CommentedHighlight[] = [];
+
+  for (const ai of aiPayload?.suggestions ?? []) {
+    const text = ai.content?.text ?? "";
+    const metadata = ai.metadata ?? null;
+
+    if (!ai.position || !ai.position.boundingRect) {
+      console.warn("Missing position in AI highlight:", ai);
+      continue;
+    }
+
+    const { boundingRect, rects } = ai.position;
+    const pageNumber = boundingRect.pageNumber;
+
+    if (!Array.isArray(rects)) {
+      console.warn("AI rects not array:", rects);
+      continue;
+    }
+
+    const scaledRects = rects
+      .map(r => normalizedToViewportRect(r, pageNumber))
+      .filter(Boolean);
+
+    if (!scaledRects.length) continue;
+
+    let reason = "AI";
+    let topLevel = "";
+    if (metadata?.reasoning) {
+      const m = metadata.reasoning.match(/sensitive\s+([A-Za-z]+)/i);
+      if (m) reason = m[1];
+      if (metadata.reasoning.includes(" PII ")) topLevel = "PII";
+    }
+
+    const category = metadata?.category ?? "Unknown";
+    const fullCategory =
+      topLevel !== "" ? `${topLevel} (${category})` : category;
+
+    const h: CommentedHighlight = {
+      id: ai.id ?? String(Math.random()).slice(2),
+      content: { text },
+      comment: metadata?.reasoning ?? "",
+      position: {
+        boundingRect: scaledRects[0],
+        rects: scaledRects,
+      },
+      metadata,
+      source: "ai",
+      label: `AI generated: ${reason} – ${category}`,
+      category: fullCategory,
+      confidence: metadata?.confidence
+    };
+
+    aiHighlights.push(h);
+  }
+
+  // 3. Dedupe
+  const existingIds = new Set(existingAll.map(h => h.id));
+  const filteredAi = aiHighlights.filter(h => !existingIds.has(h.id));
+
+  // 4. Merge
+  const mergedAll = [...existingAll, ...filteredAi];
+  const mergedActive = new Set([...existingActive, ...filteredAi.map(h => h.id)]);
+
+  // 5. Update Dexie
+  await db.pdfs.update(pdfId, {
+    allHighlights: mergedAll,
+    activeHighlights: Array.from(mergedActive)
+  });
+
+  // 6. Push to Blob Storage
+  await saveWorkingSnapshotToBlob(userId, projectId, pdfId);
 }
