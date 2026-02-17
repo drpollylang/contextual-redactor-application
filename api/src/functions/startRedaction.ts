@@ -120,6 +120,7 @@ export async function startRedactionHandler(
 ): Promise<HttpResponseInit> {
   try {
     const apiUrl = process.env.BACKEND_API_URL; // e.g. https://<containerapp>.azurecontainerapps.io/start-redaction
+    console.log(`[SWA start-redaction] Received request. BACKEND_API_URL=${apiUrl ? "(set)" : "(not set)"}`);
     if (!apiUrl) {
       context.error("Missing BACKEND_API_URL environment variable.");
       return { status: 500, body: "Server not configured (BACKEND_API_URL not set)." };
