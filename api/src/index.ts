@@ -9,6 +9,10 @@ import "./functions/listProjects"; // lists all projects under files/userId/ fro
 import "./functions/createProjectFolders"; // creates a project folder in Blob storage
 import "./functions/deleteProjectFolders"; // deletes a project folder in Blob storage (moves it to /discarded/, which is deleted every 30 days unless it is edited)
 import "./functions/debugApi"; 
+import "./functions/startJob"; 
+import "./functions/jobStatus"; 
+import "./functions/jobResult"; 
+
 
 app.setup({
     enableHttpStream: true,

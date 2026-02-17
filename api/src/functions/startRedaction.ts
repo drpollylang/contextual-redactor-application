@@ -96,80 +96,203 @@
 // });
 
 // api/src/functions/startRedaction.ts
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+// import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-type StartRedactionBody = {
+// type StartRedactionBody = {
+//   blobName?: string;
+//   rules?: string[] | null;
+//   userInstructions?: string | null;
+// };
+
+// function asStringArray(maybe: unknown): string[] {
+//   if (!Array.isArray(maybe)) return [];
+//   return maybe.filter((x) => typeof x === "string") as string[];
+// }
+
+// /**
+//  * POST /api/start-redaction
+//  * Body: { blobName: string, rules?: string[], userInstructions?: string }
+//  * Proxies the request to the Container App FastAPI endpoint.
+//  */
+// export async function startRedactionHandler(
+//   request: HttpRequest,
+//   context: InvocationContext
+// ): Promise<HttpResponseInit> {
+//   try {
+//     const apiUrl = process.env.BACKEND_API_URL; // e.g. https://<containerapp>.azurecontainerapps.io/start-redaction
+//     console.log(`[SWA start-redaction] Received request. BACKEND_API_URL=${apiUrl ? "(set)" : "(not set)"}`);
+//     if (!apiUrl) {
+//       context.error("Missing BACKEND_API_URL environment variable.");
+//       return { status: 500, body: "Server not configured (BACKEND_API_URL not set)." };
+//     }
+
+//     const body = (await request.json()) as StartRedactionBody;
+
+//     // Validate required
+//     const blobName = typeof body?.blobName === "string" ? body.blobName : undefined;
+//     if (!blobName) {
+//       return { status: 400, body: "Missing or invalid 'blobName'." };
+//     }
+
+//     // Normalize optional
+//     const rules = asStringArray(body?.rules);
+//     const userInstructions = typeof body?.userInstructions === "string" ? body.userInstructions : "";
+
+//     const payload = { blobName, rules, userInstructions };
+
+//     context.log(
+//       `[SWA start-redaction] → Container App: ${apiUrl} | payload: blobName="${blobName}", rules_len=${rules.length}, user_instr_len=${userInstructions.length}`
+//     );
+
+//     // Optional: basic timeout safeguard (Node fetch defaults are unlimited)
+//     const ctrl = new AbortController();
+//     const to = setTimeout(() => ctrl.abort(), 1000 * 60 * 15); // 15 mins max (tune to your needs)
+
+//     const resp = await fetch(apiUrl, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify(payload),
+//       signal: ctrl.signal,
+//     }).catch((e) => {
+//       context.error(`[SWA → ContainerApp] network error: ${e?.message || e}`);
+//       throw e;
+//     });
+//     clearTimeout(to);
+
+//     const text = await resp.text();
+//     if (!resp.ok) {
+//       // surface container error body for easier debugging
+//       context.error(`[SWA → ContainerApp] ${resp.status}: ${text}`);
+//       return { status: 502, body: text };
+//     }
+
+//     // Pass-through JSON to client
+//     return { status: 200, body: text, headers: { "Content-Type": "application/json" } };
+//   } catch (err: any) {
+//     context.error(err);
+//     return { status: 500, body: err?.message ?? "Unexpected error" };
+//   }
+// }
+
+// app.http("start-redaction", {
+//   methods: ["POST"],
+//   authLevel: "anonymous",
+//   route: "start-redaction",
+//   handler: startRedactionHandler,
+// });
+
+// api/src/functions/startRedaction.ts
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from "@azure/functions";
+
+interface StartRedactionBody {
   blobName?: string;
   rules?: string[] | null;
   userInstructions?: string | null;
-};
+}
 
 function asStringArray(maybe: unknown): string[] {
   if (!Array.isArray(maybe)) return [];
   return maybe.filter((x) => typeof x === "string") as string[];
 }
 
-/**
- * POST /api/start-redaction
- * Body: { blobName: string, rules?: string[], userInstructions?: string }
- * Proxies the request to the Container App FastAPI endpoint.
- */
+const START_JOB_URL = process.env.START_JOB_URL;     // → points to your /api/start-job
+const JOB_STATUS_URL = process.env.JOB_STATUS_URL;   // → points to your /api/job-status
+const JOB_RESULT_URL = process.env.JOB_RESULT_URL;   // → points to your /api/job-result
+const POLL_INTERVAL_MS = 2000;                       // poll every 2 sec
+const TIMEOUT_MS = 1000 * 60 * 15;                   // 15 min timeout
+
 export async function startRedactionHandler(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
-    const apiUrl = process.env.BACKEND_API_URL; // e.g. https://<containerapp>.azurecontainerapps.io/start-redaction
-    console.log(`[SWA start-redaction] Received request. BACKEND_API_URL=${apiUrl ? "(set)" : "(not set)"}`);
-    if (!apiUrl) {
-      context.error("Missing BACKEND_API_URL environment variable.");
-      return { status: 500, body: "Server not configured (BACKEND_API_URL not set)." };
+    if (!START_JOB_URL || !JOB_STATUS_URL || !JOB_RESULT_URL) {
+      return {
+        status: 500,
+        body: "Server not configured (missing START_JOB_URL / JOB_STATUS_URL / JOB_RESULT_URL)",
+      };
     }
 
+    // -----------------------------
+    // 1. Validate + parse input
+    // -----------------------------
     const body = (await request.json()) as StartRedactionBody;
 
-    // Validate required
     const blobName = typeof body?.blobName === "string" ? body.blobName : undefined;
     if (!blobName) {
       return { status: 400, body: "Missing or invalid 'blobName'." };
     }
 
-    // Normalize optional
     const rules = asStringArray(body?.rules);
-    const userInstructions = typeof body?.userInstructions === "string" ? body.userInstructions : "";
+    const userInstructions =
+      typeof body?.userInstructions === "string" ? body.userInstructions : "";
 
     const payload = { blobName, rules, userInstructions };
 
-    context.log(
-      `[SWA start-redaction] → Container App: ${apiUrl} | payload: blobName="${blobName}", rules_len=${rules.length}, user_instr_len=${userInstructions.length}`
-    );
+    context.log("➡️ /start-redaction starting job with payload:", payload);
 
-    // Optional: basic timeout safeguard (Node fetch defaults are unlimited)
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 1000 * 60 * 15); // 15 mins max (tune to your needs)
-
-    const resp = await fetch(apiUrl, {
+    // -----------------------------
+    // 2. Call start-job
+    // -----------------------------
+    const startResp = await fetch(START_JOB_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: ctrl.signal,
-    }).catch((e) => {
-      context.error(`[SWA → ContainerApp] network error: ${e?.message || e}`);
-      throw e;
     });
-    clearTimeout(to);
 
-    const text = await resp.text();
-    if (!resp.ok) {
-      // surface container error body for easier debugging
-      context.error(`[SWA → ContainerApp] ${resp.status}: ${text}`);
-      return { status: 502, body: text };
+    if (!startResp.ok) {
+      const err = await startResp.text();
+      context.error("Start-job failed:", err);
+      return { status: 502, body: err };
     }
 
-    // Pass-through JSON to client
-    return { status: 200, body: text, headers: { "Content-Type": "application/json" } };
+    const { jobId } = await startResp.json();
+
+    context.log(`🟢 Job started successfully: jobId=${jobId}`);
+
+    // -----------------------------
+    // 3. Poll job-status until complete
+    // -----------------------------
+    const startTime = Date.now();
+
+    while (true) {
+      if (Date.now() - startTime > TIMEOUT_MS) {
+        return {
+          status: 504,
+          body: `Job ${jobId} timed out after ${TIMEOUT_MS / 1000} seconds`,
+        };
+      }
+
+      const statusResp = await fetch(`${JOB_STATUS_URL}?jobId=${jobId}`);
+      const statusJson = await statusResp.json();
+
+      if (statusJson.status === "complete") {
+        break;
+      }
+
+      context.log(`⏳ Job ${jobId} still running...`);
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    }
+
+    context.log(`🟢 Job ${jobId} completed. Fetching results...`);
+
+    // -----------------------------
+    // 4. Fetch job result
+    // -----------------------------
+    const resultResp = await fetch(`${JOB_RESULT_URL}?jobId=${jobId}`);
+    const resultJson = await resultResp.json();
+
+    return {
+      status: 200,
+      jsonBody: resultJson,
+    };
   } catch (err: any) {
-    context.error(err);
+    context.error("❌ start-redaction error:", err);
     return { status: 500, body: err?.message ?? "Unexpected error" };
   }
 }
