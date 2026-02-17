@@ -8,6 +8,7 @@ import "./functions/startRedaction";// calls the redaction-backend-func Function
 import "./functions/listProjects"; // lists all projects under files/userId/ from Blob Storage
 import "./functions/createProjectFolders"; // creates a project folder in Blob storage
 import "./functions/deleteProjectFolders"; // deletes a project folder in Blob storage (moves it to /discarded/, which is deleted every 30 days unless it is edited)
+import "./functions/debugApi"; 
 
 app.setup({
     enableHttpStream: true,
