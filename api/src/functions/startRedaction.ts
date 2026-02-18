@@ -182,6 +182,131 @@
 // });
 
 // api/src/functions/startRedaction.ts
+// import {
+//   app,
+//   HttpRequest,
+//   HttpResponseInit,
+//   InvocationContext,
+// } from "@azure/functions";
+
+// interface StartRedactionBody {
+//   blobName?: string;
+//   rules?: string[] | null;
+//   userInstructions?: string | null;
+// }
+
+// function asStringArray(maybe: unknown): string[] {
+//   if (!Array.isArray(maybe)) return [];
+//   return maybe.filter((x) => typeof x === "string") as string[];
+// }
+
+// const START_JOB_URL = process.env.START_JOB_URL;     // → points to your /api/start-job
+// const JOB_STATUS_URL = process.env.JOB_STATUS_URL;   // → points to your /api/job-status
+// const JOB_RESULT_URL = process.env.JOB_RESULT_URL;   // → points to your /api/job-result
+// const POLL_INTERVAL_MS = 2000;                       // poll every 2 sec
+// const TIMEOUT_MS = 1000 * 60 * 15;                   // 15 min timeout
+
+// export async function startRedactionHandler(
+//   request: HttpRequest,
+//   context: InvocationContext
+// ): Promise<HttpResponseInit> {
+//   try {
+//     // if (!START_JOB_URL || !JOB_STATUS_URL || !JOB_RESULT_URL) {
+//     if (!START_JOB_URL || !JOB_STATUS_URL) {
+//       return {
+//         status: 500,
+//         body: "Server not configured (missing START_JOB_URL / JOB_STATUS_URL)",
+//       };
+//     }
+
+//     // -----------------------------
+//     // 1. Validate + parse input
+//     // -----------------------------
+//     const body = (await request.json()) as StartRedactionBody;
+
+//     const blobName = typeof body?.blobName === "string" ? body.blobName : undefined;
+//     if (!blobName) {
+//       return { status: 400, body: "Missing or invalid 'blobName'." };
+//     }
+
+//     const rules = asStringArray(body?.rules);
+//     const userInstructions =
+//       typeof body?.userInstructions === "string" ? body.userInstructions : "";
+
+//     const payload = { blobName, rules, userInstructions };
+
+//     context.log("➡️ /start-redaction starting job with payload:", payload);
+
+//     // -----------------------------
+//     // 2. Call start-job
+//     // -----------------------------
+//     const startResp = await fetch(START_JOB_URL, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify(payload),
+//     });
+
+//     if (!startResp.ok) {
+//       const err = await startResp.text();
+//       context.error("Start-job failed:", err);
+//       return { status: 502, body: err };
+//     }
+
+//     const { jobId } = await startResp.json();
+
+//     context.log(`🟢 Job started successfully: jobId=${jobId}`);
+
+//     // -----------------------------
+//     // 3. Poll job-status until complete
+//     // -----------------------------
+//     const startTime = Date.now();
+
+//     while (true) {
+//       if (Date.now() - startTime > TIMEOUT_MS) {
+//         return {
+//           status: 504,
+//           body: `Job ${jobId} timed out after ${TIMEOUT_MS / 1000} seconds`,
+//         };
+//       }
+
+//       const statusResp = await fetch(`${JOB_STATUS_URL}?jobId=${jobId}`);
+//       const statusJson = await statusResp.json();
+
+//       if (statusJson.status === "complete") {
+//         break;
+//       }
+
+//       context.log(`⏳ Job ${jobId} still running...`);
+//       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+//     }
+
+//     context.log(`🟢 Job ${jobId} completed. Fetching results...`);
+
+//     // -----------------------------
+//     // 4. Fetch job result
+//     // -----------------------------
+//     const resultResp = await fetch(`${JOB_RESULT_URL}?jobId=${jobId}`);
+//     const resultJson = await resultResp.json();
+
+//     return {
+//       status: 200,
+//       jsonBody: resultJson,
+//     };
+//   } catch (err: any) {
+//     context.error("❌ start-redaction error:", err);
+//     return { status: 500, body: err?.message ?? "Unexpected error" };
+//   }
+// }
+
+// app.http("start-redaction", {
+//   methods: ["POST"],
+//   authLevel: "anonymous",
+//   route: "start-redaction",
+//   handler: startRedactionHandler,
+// });
+
+
+// v3 - aligned with Container App interface/polling contract
 import {
   app,
   HttpRequest,
@@ -200,11 +325,11 @@ function asStringArray(maybe: unknown): string[] {
   return maybe.filter((x) => typeof x === "string") as string[];
 }
 
-const START_JOB_URL = process.env.START_JOB_URL;     // → points to your /api/start-job
-const JOB_STATUS_URL = process.env.JOB_STATUS_URL;   // → points to your /api/job-status
-const JOB_RESULT_URL = process.env.JOB_RESULT_URL;   // → points to your /api/job-result
-const POLL_INTERVAL_MS = 2000;                       // poll every 2 sec
-const TIMEOUT_MS = 1000 * 60 * 15;                   // 15 min timeout
+const START_JOB_URL = process.env.START_JOB_URL;     // POST /start-redaction
+const JOB_STATUS_URL = process.env.JOB_STATUS_URL;   // GET /job-status?jobId=
+const JOB_RESULT_URL = process.env.JOB_RESULT_URL;   // GET /job-result?jobId=
+const POLL_INTERVAL_MS = 2000;                       
+const TIMEOUT_MS = 1000 * 60 * 15;                   
 
 export async function startRedactionHandler(
   request: HttpRequest,
@@ -214,13 +339,11 @@ export async function startRedactionHandler(
     if (!START_JOB_URL || !JOB_STATUS_URL || !JOB_RESULT_URL) {
       return {
         status: 500,
-        body: "Server not configured (missing START_JOB_URL / JOB_STATUS_URL / JOB_RESULT_URL)",
+        body: "SWA server not configured. Missing START_JOB_URL, JOB_STATUS_URL, or JOB_RESULT_URL.",
       };
     }
 
-    // -----------------------------
-    // 1. Validate + parse input
-    // -----------------------------
+    // --- Parse & Validate Input ---
     const body = (await request.json()) as StartRedactionBody;
 
     const blobName = typeof body?.blobName === "string" ? body.blobName : undefined;
@@ -229,16 +352,13 @@ export async function startRedactionHandler(
     }
 
     const rules = asStringArray(body?.rules);
-    const userInstructions =
-      typeof body?.userInstructions === "string" ? body.userInstructions : "";
+    const userInstructions = typeof body?.userInstructions === "string" ? body.userInstructions : "";
 
     const payload = { blobName, rules, userInstructions };
 
-    context.log("➡️ /start-redaction starting job with payload:", payload);
+    context.log("➡️ SWA /start-redaction: calling backend:", payload);
 
-    // -----------------------------
-    // 2. Call start-job
-    // -----------------------------
+    // --- Step 1: Call backend to start the job ---
     const startResp = await fetch(START_JOB_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -246,45 +366,41 @@ export async function startRedactionHandler(
     });
 
     if (!startResp.ok) {
-      const err = await startResp.text();
-      context.error("Start-job failed:", err);
-      return { status: 502, body: err };
+      const text = await startResp.text();
+      return { status: 502, body: text };
     }
 
     const { jobId } = await startResp.json();
+    context.log(`🟢 Job started: ${jobId}`);
 
-    context.log(`🟢 Job started successfully: jobId=${jobId}`);
-
-    // -----------------------------
-    // 3. Poll job-status until complete
-    // -----------------------------
+    // --- Step 2: Poll backend job-status ---
     const startTime = Date.now();
 
     while (true) {
       if (Date.now() - startTime > TIMEOUT_MS) {
         return {
           status: 504,
-          body: `Job ${jobId} timed out after ${TIMEOUT_MS / 1000} seconds`,
+          body: `Job ${jobId} timed out after ${TIMEOUT_MS / 1000}s`,
         };
       }
 
       const statusResp = await fetch(`${JOB_STATUS_URL}?jobId=${jobId}`);
       const statusJson = await statusResp.json();
 
-      if (statusJson.status === "complete") {
-        break;
-      }
+      if (statusJson.status === "complete") break;
 
       context.log(`⏳ Job ${jobId} still running...`);
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
 
-    context.log(`🟢 Job ${jobId} completed. Fetching results...`);
+    context.log(`🟢 Job ${jobId} complete. Fetching result...`);
 
-    // -----------------------------
-    // 4. Fetch job result
-    // -----------------------------
+    // --- Step 3: Fetch final redaction JSON ---
     const resultResp = await fetch(`${JOB_RESULT_URL}?jobId=${jobId}`);
+    if (!resultResp.ok) {
+      return { status: 502, body: await resultResp.text() };
+    }
+
     const resultJson = await resultResp.json();
 
     return {
@@ -292,7 +408,7 @@ export async function startRedactionHandler(
       jsonBody: resultJson,
     };
   } catch (err: any) {
-    context.error("❌ start-redaction error:", err);
+    context.error("start-redaction error:", err);
     return { status: 500, body: err?.message ?? "Unexpected error" };
   }
 }
