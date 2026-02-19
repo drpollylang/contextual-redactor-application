@@ -16,7 +16,8 @@ export async function startJobHandler(
     if (!backend) {
       return {
         status: 500,
-        jsonBody: { error: "BACKEND_START_ENDPOINT not configured" },
+        body: JSON.stringify({ error: "BACKEND_START_ENDPOINT not configured" }),
+        headers: { "Content-Type": "application/json" },
       };
     }
 
@@ -32,17 +33,17 @@ export async function startJobHandler(
     const text = await res.text();
     if (!res.ok) {
       ctx.log("backend error:", text);
-      return { status: 502, body: text };
+      return { status: 502, body: JSON.stringify({ error: text })  };
     }
 
     return {
       status: 202,
-      body: text,
+      body: JSON.stringify(text),
       headers: { "Content-Type": "application/json" },
     };
   } catch (err: any) {
     ctx.error("start-job error:", err);
-    return { status: 500, body: err?.message ?? "Unexpected error" };
+    return { status: 500, body: JSON.stringify({ error: err?.message ?? "Unexpected error" })};
   }
 }
 
