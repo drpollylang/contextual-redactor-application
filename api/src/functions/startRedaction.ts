@@ -336,6 +336,9 @@ export async function startRedactionHandler(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
+    context.log("START_JOB_URL =", START_JOB_URL);
+    context.log("JOB_STATUS_URL =", JOB_STATUS_URL);
+    context.log("JOB_RESULT_URL =", JOB_RESULT_URL);
     if (!START_JOB_URL || !JOB_STATUS_URL || !JOB_RESULT_URL) {
       return {
         status: 500,
