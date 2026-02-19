@@ -331,90 +331,298 @@ const JOB_RESULT_URL = process.env.JOB_RESULT_URL;   // GET /job-result?jobId=
 const POLL_INTERVAL_MS = 2000;                       
 const TIMEOUT_MS = 1000 * 60 * 15;                   
 
+// export async function startRedactionHandler(
+//   request: HttpRequest,
+//   context: InvocationContext
+// ): Promise<HttpResponseInit> {
+//   try {
+//     if (!START_JOB_URL || !JOB_STATUS_URL || !JOB_RESULT_URL) {
+//       return {
+//         status: 500,
+//         body: "SWA server not configured. Missing START_JOB_URL, JOB_STATUS_URL, or JOB_RESULT_URL.",
+//       };
+//     }
+
+//     // --- Parse & Validate Input ---
+//     const body = (await request.json()) as StartRedactionBody;
+
+//     const blobName = typeof body?.blobName === "string" ? body.blobName : undefined;
+//     if (!blobName) {
+//       return { status: 400, body: "Missing or invalid 'blobName'." };
+//     }
+
+//     const rules = asStringArray(body?.rules);
+//     const userInstructions = typeof body?.userInstructions === "string" ? body.userInstructions : "";
+
+//     const payload = { blobName, rules, userInstructions };
+
+//     context.log("➡️ SWA /start-redaction: calling backend:", payload);
+
+//     // --- Step 1: Call backend to start the job ---
+//     const startResp = await fetch(START_JOB_URL, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify(payload),
+//     });
+
+//     if (!startResp.ok) {
+//       const text = await startResp.text();
+//       return { status: 502, body: text };
+//     }
+
+//     const { jobId } = await startResp.json();
+//     context.log(`🟢 Job started: ${jobId}`);
+
+//     // --- Step 2: Poll backend job-status ---
+//     const startTime = Date.now();
+
+//     while (true) {
+//       if (Date.now() - startTime > TIMEOUT_MS) {
+//         return {
+//           status: 504,
+//           body: `Job ${jobId} timed out after ${TIMEOUT_MS / 1000}s`,
+//         };
+//       }
+
+//       const statusResp = await fetch(`${JOB_STATUS_URL}?jobId=${jobId}`);
+//       const statusJson = await statusResp.json();
+
+//       if (statusJson.status === "complete") break;
+
+//       context.log(`⏳ Job ${jobId} still running...`);
+//       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+//     }
+
+//     context.log(`🟢 Job ${jobId} complete. Fetching result...`);
+
+//     // --- Step 3: Fetch final redaction JSON ---
+//     const resultResp = await fetch(`${JOB_RESULT_URL}?jobId=${jobId}`);
+//     if (!resultResp.ok) {
+//       return { status: 502, body: await resultResp.text() };
+//     }
+
+//     const resultJson = await resultResp.json();
+
+//     // return {
+//     //   status: 200,
+//     //   jsonBody: resultJson,
+//     // };
+//     return {
+//       status: 200,
+//       body: JSON.stringify(resultJson),
+//       headers: { "Content-Type": "application/json" }
+//     };
+//   } catch (err: any) {
+//     context.error("start-redaction error:", err);
+//     return { status: 500, body: err?.message ?? "Unexpected error" };
+//   }
+// }
+
 export async function startRedactionHandler(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
-    context.log("START_JOB_URL =", START_JOB_URL);
-    context.log("JOB_STATUS_URL =", JOB_STATUS_URL);
-    context.log("JOB_RESULT_URL =", JOB_RESULT_URL);
+    // --- Config guard ---
     if (!START_JOB_URL || !JOB_STATUS_URL || !JOB_RESULT_URL) {
+      const msg =
+        "SWA server not configured. Missing START_JOB_URL, JOB_STATUS_URL, or JOB_RESULT_URL.";
+      context.error(msg);
       return {
         status: 500,
-        body: "SWA server not configured. Missing START_JOB_URL, JOB_STATUS_URL, or JOB_RESULT_URL.",
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
       };
     }
 
-    // --- Parse & Validate Input ---
-    const body = (await request.json()) as StartRedactionBody;
-
-    const blobName = typeof body?.blobName === "string" ? body.blobName : undefined;
-    if (!blobName) {
-      return { status: 400, body: "Missing or invalid 'blobName'." };
+    // --- Parse & validate input ---
+    let bodyJson: StartRedactionBody | undefined;
+    try {
+      bodyJson = (await request.json()) as StartRedactionBody;
+    } catch {
+      // Body may be empty or invalid JSON
+      bodyJson = undefined;
     }
 
-    const rules = asStringArray(body?.rules);
-    const userInstructions = typeof body?.userInstructions === "string" ? body.userInstructions : "";
+    const blobName =
+      typeof bodyJson?.blobName === "string" && bodyJson.blobName.trim().length > 0
+        ? bodyJson.blobName
+        : undefined;
+    if (!blobName) {
+      const msg = "Missing or invalid 'blobName'.";
+      context.warn(msg);
+      return {
+        status: 400,
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+
+    const rules = asStringArray(bodyJson?.rules);
+    const userInstructions =
+      typeof bodyJson?.userInstructions === "string" ? bodyJson.userInstructions : "";
 
     const payload = { blobName, rules, userInstructions };
+    context.log("➡️ SWA /start-redaction: calling backend with payload:", payload);
 
-    context.log("➡️ SWA /start-redaction: calling backend:", payload);
-
-    // --- Step 1: Call backend to start the job ---
+    // --- Step 1: Start job in container app ---
     const startResp = await fetch(START_JOB_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
+    const startText = await startResp.text(); // read once
     if (!startResp.ok) {
-      const text = await startResp.text();
-      return { status: 502, body: text };
+      const detail = startText || "(no response body)";
+      const msg = `Backend start-redaction failed: ${startResp.status} ${startResp.statusText} — ${detail}`;
+      context.error(msg);
+      return {
+        status: 502,
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
+      };
     }
 
-    const { jobId } = await startResp.json();
+    let jobId: string | undefined;
+    try {
+      const json = startText ? JSON.parse(startText) : {};
+      jobId = json?.jobId;
+    } catch (e) {
+      const msg = `Failed to parse backend start-redaction JSON: ${(e as Error).message}`;
+      context.error(msg, startText);
+      return {
+        status: 502,
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+
+    if (!jobId || typeof jobId !== "string") {
+      const msg = `Backend did not return a valid jobId. Payload: ${startText}`;
+      context.error(msg);
+      return {
+        status: 502,
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+
     context.log(`🟢 Job started: ${jobId}`);
 
-    // --- Step 2: Poll backend job-status ---
+    // --- Step 2: Poll job-status until complete or timeout ---
     const startTime = Date.now();
-
     while (true) {
       if (Date.now() - startTime > TIMEOUT_MS) {
+        const msg = `Job ${jobId} timed out after ${Math.round(TIMEOUT_MS / 1000)}s`;
+        context.warn(msg);
         return {
           status: 504,
-          body: `Job ${jobId} timed out after ${TIMEOUT_MS / 1000}s`,
+          body: JSON.stringify({ error: msg }),
+          headers: { "Content-Type": "application/json" },
         };
       }
 
-      const statusResp = await fetch(`${JOB_STATUS_URL}?jobId=${jobId}`);
-      const statusJson = await statusResp.json();
+      let statusResp: Response;
+      try {
+        statusResp = await fetch(`${JOB_STATUS_URL}?jobId=${encodeURIComponent(jobId)}`);
+      } catch (e) {
+        const msg = `Error calling job-status: ${(e as Error).message}`;
+        context.warn(msg);
+        await delay(POLL_INTERVAL_MS);
+        continue;
+      }
 
-      if (statusJson.status === "complete") break;
+      let statusJson: any = null;
+      try {
+        const t = await statusResp.text();
+        statusJson = t ? JSON.parse(t) : {};
+      } catch {
+        statusJson = null;
+      }
+
+      // Non-OK status: keep polling (job API might be momentarily unavailable)
+      if (!statusResp.ok) {
+        context.warn(
+          `job-status returned ${statusResp.status} ${statusResp.statusText} — continuing to poll...`
+        );
+        await delay(POLL_INTERVAL_MS);
+        continue;
+      }
+
+      if (statusJson && statusJson.status === "complete") {
+        break;
+      }
 
       context.log(`⏳ Job ${jobId} still running...`);
-      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      await delay(POLL_INTERVAL_MS);
     }
 
     context.log(`🟢 Job ${jobId} complete. Fetching result...`);
 
     // --- Step 3: Fetch final redaction JSON ---
-    const resultResp = await fetch(`${JOB_RESULT_URL}?jobId=${jobId}`);
-    if (!resultResp.ok) {
-      return { status: 502, body: await resultResp.text() };
+    let resultResp: Response;
+    try {
+      resultResp = await fetch(`${JOB_RESULT_URL}?jobId=${encodeURIComponent(jobId)}`);
+    } catch (e) {
+      const msg = `Error calling job-result: ${(e as Error).message}`;
+      context.error(msg);
+      return {
+        status: 502,
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
+      };
     }
 
-    const resultJson = await resultResp.json();
+    const resultText = await resultResp.text();
+    if (!resultResp.ok) {
+      const msg = `job-result failed: ${resultResp.status} ${resultResp.statusText} — ${
+        resultText || "(no body)"
+      }`;
+      context.error(msg);
+      return {
+        status: 502,
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
 
+    let resultJson: any;
+    try {
+      resultJson = resultText ? JSON.parse(resultText) : {};
+    } catch (e) {
+      const msg = `Failed to parse job-result JSON: ${(e as Error).message}`;
+      context.error(msg, resultText);
+      return {
+        status: 502,
+        body: JSON.stringify({ error: msg }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+
+    // Success
     return {
       status: 200,
-      jsonBody: resultJson,
+      body: JSON.stringify(resultJson),
+      headers: { "Content-Type": "application/json" },
     };
   } catch (err: any) {
-    context.error("start-redaction error:", err);
-    return { status: 500, body: err?.message ?? "Unexpected error" };
+    // Last-chance error handler
+    const message =
+      (err && (err.message || err.toString?.())) || "Unexpected error";
+    context.error("start-redaction unhandled error:", message, err);
+    return {
+      status: 500,
+      body: JSON.stringify({ error: message }),
+      headers: { "Content-Type": "application/json" },
+    };
   }
 }
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 
 app.http("start-redaction", {
   methods: ["POST"],
