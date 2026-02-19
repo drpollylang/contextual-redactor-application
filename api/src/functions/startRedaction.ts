@@ -420,20 +420,20 @@ const TIMEOUT_MS = 1000 * 60 * 15;
 
 /**
  * Use the SAME naming convention as your other SWA functions:
- *   BACKEND_START_ENDPOINT, BACKEND_STATUS_ENDPOINT, BACKEND_RESULT_ENDPOINT
+ *   JOB_START_URL, JOB_STATUS_URL, JOB_RESULT_URL
  * so configuration stays consistent across start/status/result.
  */
-const BACKEND_START_ENDPOINT = process.env.START_JOB_URL;
+const JOB_START_URL = process.env.START_JOB_URL;
 
 export async function startRedactionHandler(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
-    if (!BACKEND_START_ENDPOINT) {
+    if (!JOB_START_URL) {
       return {
         status: 500,
-        body: JSON.stringify({ error: "BACKEND_START_ENDPOINT not set" }),
+        body: JSON.stringify({ error: "JOB_START_URL not set" }),
         headers: { "Content-Type": "application/json" },
       };
     }
@@ -463,10 +463,10 @@ export async function startRedactionHandler(
       typeof body?.userInstructions === "string" ? body.userInstructions : "";
 
     const payload = { blobName, rules, userInstructions };
-    context.log("➡️ SWA /start-redaction (proxy) →", BACKEND_START_ENDPOINT, payload);
+    context.log("➡️ SWA /start-redaction (proxy) →", JOB_START_URL, payload);
 
     // Call container app to start the job; EXPECTS to return { jobId }
-    const resp = await fetch(BACKEND_START_ENDPOINT, {
+    const resp = await fetch(JOB_START_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

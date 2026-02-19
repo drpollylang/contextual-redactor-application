@@ -10,13 +10,13 @@ export async function startJobHandler(
   ctx: InvocationContext
 ): Promise<HttpResponseInit> {
   try {
-    const backend = process.env.BACKEND_START_ENDPOINT; 
+    const backend = process.env.START_JOB_URL; 
     // e.g. https://<container-app>.azurecontainerapps.io/start-redaction
 
     if (!backend) {
       return {
         status: 500,
-        body: JSON.stringify({ error: "BACKEND_START_ENDPOINT not configured" }),
+        body: JSON.stringify({ error: "START_JOB_URL not configured" }),
         headers: { "Content-Type": "application/json" },
       };
     }

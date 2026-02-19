@@ -14,11 +14,11 @@
 //     if (!jobId)
 //       return { status: 400, body: "Missing jobId" };
 
-//     const endpoint = process.env.BACKEND_RESULT_ENDPOINT;
+//     const endpoint = process.env.JOB_RESULT_URL;
 //     // e.g. https://<container-app>.azurecontainerapps.io/job-result
 
 //     if (!endpoint)
-//       return { status: 500, body: "BACKEND_RESULT_ENDPOINT not set" };
+//       return { status: 500, body: "JOB_RESULT_URL not set" };
 
 //     const url = `${endpoint}?jobId=${jobId}`;
 //     ctx.log("job-result →", url);
@@ -69,11 +69,11 @@ export async function jobResultHandler(
       };
     }
 
-    const endpoint = process.env.BACKEND_RESULT_ENDPOINT;
+    const endpoint = process.env.JOB_RESULT_URL;
     if (!endpoint) {
       return {
         status: 500,
-        body: JSON.stringify({ error: "BACKEND_RESULT_ENDPOINT not set" }),
+        body: JSON.stringify({ error: "JOB_RESULT_URL not set" }),
         headers: { "Content-Type": "application/json" },
       };
     }
