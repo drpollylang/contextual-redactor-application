@@ -589,11 +589,204 @@
 // aiRedactionHelpers.ts — UPDATED FOR CONTAINER APP BACKEND
 //
 
+// import { AiJobStatus } from "../mytypes/ai";
+
+// /**
+//  * Start backend job + poll until complete.
+//  * Returns the final redaction JSON.
+//  */
+// export async function runSingleRedactionJob({
+//   blobPath,
+//   aiRules,
+//   userInstructions,
+//   onStatusChange,
+//   onComplete,
+//   onError,
+// }: {
+//   blobPath: string;
+//   aiRules: string[];
+//   userInstructions: string;
+//   onStatusChange?: (status: AiJobStatus) => void;
+//   onComplete?: (output: any) => void;
+//   onError?: (err: any) => void;
+// }): Promise<void> {
+//   try {
+//     // ------------------------------------------------------
+//     // 1. START JOB
+//     // ------------------------------------------------------
+//     const startRes = await fetch("/api/start-redaction", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({
+//         blobName: blobPath,
+//         rules: aiRules,
+//         userInstructions,
+//       }),
+//     });
+
+//     if (!startRes.ok) {
+//       throw new Error(await startRes.text());
+//     }
+
+//     const { jobId } = await startRes.json();
+//     onStatusChange?.("running");
+
+//     // ------------------------------------------------------
+//     // 2. POLL JOB STATUS
+//     // ------------------------------------------------------
+//     const pollIntervalMs = 2000;
+
+//     while (true) {
+//       const statusRes = await fetch(`/api/job-status?jobId=${jobId}`);
+//       const statusJson = await statusRes.json();
+
+//       if (statusJson.status === "complete") break;
+
+//       onStatusChange?.("running");
+//       await new Promise((r) => setTimeout(r, pollIntervalMs));
+//     }
+
+//     onStatusChange?.("completed");
+
+//     // ------------------------------------------------------
+//     // 3. FETCH FINAL OUTPUT
+//     // ------------------------------------------------------
+//     const resultRes = await fetch(`/api/job-result?jobId=${jobId}`);
+//     if (!resultRes.ok) {
+//       throw new Error(await resultRes.text());
+//     }
+
+//     const output = await resultRes.json();
+//     onComplete?.(output);
+//   } catch (err) {
+//     onError?.(err);
+//   }
+// }
+
+// /**
+//  * Run AI redaction for multiple documents in parallel.
+//  */
+// export async function runAiRedactionForProjectParallel({
+//   userId,
+//   projectId,
+//   fileNames,
+//   aiRules,
+//   userInstructions,
+//   concurrency = 2,
+//   signal,
+//   onDocStatus,
+//   onDocComplete,
+//   onDocError,
+//   onBatchProgress,
+// }: {
+//   userId: string;
+//   projectId: string;
+//   fileNames: string[];
+//   aiRules: string[];
+//   userInstructions: string;
+//   concurrency?: number;
+//   signal?: AbortSignal;
+//   onDocStatus?: (fileName: string, status: AiJobStatus) => void;
+//   onDocComplete?: (fileName: string, output: any) => void;
+//   onDocError?: (fileName: string, err: any) => void;
+//   onBatchProgress?: (completed: number, total: number) => void;
+// }): Promise<void> {
+//   let active = 0;
+//   let completed = 0;
+//   const total = fileNames.length;
+//   const queue = [...fileNames];
+//   const abort = () => signal?.aborted;
+
+//   return new Promise<void>((resolve, reject) => {
+//     const runNext = () => {
+//       if (abort()) return reject(new Error("Cancelled"));
+//       if (queue.length === 0 && active === 0) {
+//         resolve();
+//         return;
+//       }
+
+//       while (active < concurrency && queue.length > 0) {
+//         const fileName = queue.shift()!;
+//         active++;
+
+//         onDocStatus?.(fileName, "running");
+
+//         const blobPath = `files/${userId}/${projectId}/original/${fileName}`;
+
+//         runSingleRedactionJob({
+//           blobPath,
+//           aiRules,
+//           userInstructions,
+//           onStatusChange: (s) => onDocStatus?.(fileName, s),
+//           onComplete: (payload) => {
+//             onDocStatus?.(fileName, "completed");
+//             onDocComplete?.(fileName, payload);
+//             completed++;
+//             onBatchProgress?.(completed, total);
+//             active--;
+//             runNext();
+//           },
+//           onError: (err) => {
+//             onDocStatus?.(fileName, "failed");
+//             onDocError?.(fileName, err);
+//             completed++;
+//             onBatchProgress?.(completed, total);
+//             active--;
+//             runNext();
+//           },
+//         });
+//       }
+//     };
+
+//     runNext();
+//   });
+// }
+
 import { AiJobStatus } from "../mytypes/ai";
 
+type OnStatus = (status: AiJobStatus) => void;
+type OnComplete = (output: any) => void;
+type OnError = (err: any) => void;
+
+interface RunJobOpts {
+  blobPath: string;
+  aiRules: string[];
+  userInstructions: string;
+  onStatusChange?: OnStatus;
+  onComplete?: OnComplete;
+  onError?: OnError;
+  signal?: AbortSignal;
+  pollIntervalMs?: number;     // default 2000
+  timeoutMs?: number;          // default 15 * 60 * 1000
+}
+
+function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const t = setTimeout(() => resolve(), ms);
+    if (signal) {
+      const onAbort = () => {
+        clearTimeout(t);
+        reject(new DOMException("Aborted", "AbortError"));
+      };
+      if (signal.aborted) onAbort();
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
+  });
+}
+
+async function safeJson<T = any>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text) throw new Error("Empty response body");
+  try {
+    return JSON.parse(text) as T;
+  } catch (e) {
+    throw new Error(`Invalid JSON: ${(e as Error).message}. Body: ${text}`);
+  }
+}
+
 /**
- * Start backend job + poll until complete.
- * Returns the final redaction JSON.
+ * Start backend job and poll SWA status/result endpoints until completion.
+ * Returns final payload via onComplete and updates onStatusChange.
  */
 export async function runSingleRedactionJob({
   blobPath,
@@ -602,18 +795,20 @@ export async function runSingleRedactionJob({
   onStatusChange,
   onComplete,
   onError,
-}: {
-  blobPath: string;
-  aiRules: string[];
-  userInstructions: string;
-  onStatusChange?: (status: AiJobStatus) => void;
-  onComplete?: (output: any) => void;
-  onError?: (err: any) => void;
-}): Promise<void> {
+  signal,
+  pollIntervalMs = 2000,
+  timeoutMs = 15 * 60 * 1000,
+}: RunJobOpts): Promise<void> {
+  const startedAt = Date.now();
+
+  const guardTimeout = () => {
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`Timed out after ${(timeoutMs / 1000).toFixed(0)}s`);
+    }
+  };
+
   try {
-    // ------------------------------------------------------
-    // 1. START JOB
-    // ------------------------------------------------------
+    // 1) START
     const startRes = await fetch("/api/start-redaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -622,49 +817,88 @@ export async function runSingleRedactionJob({
         rules: aiRules,
         userInstructions,
       }),
+      signal,
     });
 
     if (!startRes.ok) {
-      throw new Error(await startRes.text());
+      // Always try to propagate structured error from SWA
+      const errText = await startRes.text();
+      throw new Error(
+        `start-redaction failed: ${startRes.status} ${startRes.statusText} — ${errText || "(no body)"}`
+      );
     }
 
-    const { jobId } = await startRes.json();
+    const startJson = await safeJson<{ jobId: string }>(startRes);
+    const jobId = startJson?.jobId;
+    if (!jobId) {
+      throw new Error("start-redaction did not return a jobId");
+    }
+
     onStatusChange?.("running");
 
-    // ------------------------------------------------------
-    // 2. POLL JOB STATUS
-    // ------------------------------------------------------
-    const pollIntervalMs = 2000;
+    // 2) POLL STATUS
+    let attempt = 0;
+    const backoffMin = pollIntervalMs;           // baseline 2s
+    const backoffMax = Math.min(10000, pollIntervalMs * 5); // cap 10s
 
     while (true) {
-      const statusRes = await fetch(`/api/job-status?jobId=${jobId}`);
-      const statusJson = await statusRes.json();
+      guardTimeout();
 
-      if (statusJson.status === "complete") break;
+      // a) call /api/job-status
+      let statusOk = false;
+      try {
+        const statusRes = await fetch(`/api/job-status?jobId=${encodeURIComponent(jobId)}`, { signal });
+        if (statusRes.ok) {
+          const statusJson = await safeJson<{ status: string }>(statusRes);
+          if (statusJson?.status === "complete") {
+            break;
+          }
+          statusOk = true; // “running” is a valid response
+        } else {
+          // non-OK: transient; keep polling with backoff
+          /* no-op */
+        }
+      } catch {
+        // network or parse error; treat as transient
+      }
+
+      // b) Adaptive backoff to reduce noise during transient errors
+      const wait =
+        statusOk
+          ? backoffMin
+          : Math.min(backoffMax, backoffMin * Math.pow(1.6, attempt++)); // 2s, 3.2s, 5.1s, ...
 
       onStatusChange?.("running");
-      await new Promise((r) => setTimeout(r, pollIntervalMs));
+      await sleep(wait, signal);
     }
 
     onStatusChange?.("completed");
 
-    // ------------------------------------------------------
-    // 3. FETCH FINAL OUTPUT
-    // ------------------------------------------------------
-    const resultRes = await fetch(`/api/job-result?jobId=${jobId}`);
+    // 3) FETCH RESULT
+    const resultRes = await fetch(`/api/job-result?jobId=${encodeURIComponent(jobId)}`, { signal });
     if (!resultRes.ok) {
-      throw new Error(await resultRes.text());
+      const errText = await resultRes.text();
+      throw new Error(
+        `job-result failed: ${resultRes.status} ${resultRes.statusText} — ${errText || "(no body)"}`
+      );
     }
 
-    const output = await resultRes.json();
+    const output = await safeJson<any>(resultRes);
     onComplete?.(output);
   } catch (err) {
+    if ((err as any)?.name === "AbortError") {
+      onStatusChange?.("cancelled");
+      onError?.(new Error("Cancelled"));
+      return;
+    }
+    onStatusChange?.("failed");
     onError?.(err);
   }
 }
 
 /**
- * Run AI redaction for multiple documents in parallel.
+ * Lightweight parallel batch runner with concurrency control.
+ * (Keeps your existing signatures so ProjectHome can plug in.)
  */
 export async function runAiRedactionForProjectParallel({
   userId,
@@ -695,49 +929,47 @@ export async function runAiRedactionForProjectParallel({
   let completed = 0;
   const total = fileNames.length;
   const queue = [...fileNames];
-  const abort = () => signal?.aborted;
 
   return new Promise<void>((resolve, reject) => {
-    const runNext = () => {
-      if (abort()) return reject(new Error("Cancelled"));
-      if (queue.length === 0 && active === 0) {
-        resolve();
-        return;
-      }
+    const tick = () => onBatchProgress?.(completed, total);
+
+    const next = () => {
+      if (signal?.aborted) return reject(new Error("Cancelled"));
+      if (queue.length === 0 && active === 0) return resolve();
 
       while (active < concurrency && queue.length > 0) {
         const fileName = queue.shift()!;
         active++;
 
-        onDocStatus?.(fileName, "running");
-
         const blobPath = `files/${userId}/${projectId}/original/${fileName}`;
+        onDocStatus?.(fileName, "running");
 
         runSingleRedactionJob({
           blobPath,
           aiRules,
           userInstructions,
+          signal,
           onStatusChange: (s) => onDocStatus?.(fileName, s),
-          onComplete: (payload) => {
+          onComplete: (output) => {
             onDocStatus?.(fileName, "completed");
-            onDocComplete?.(fileName, payload);
+            onDocComplete?.(fileName, output);
             completed++;
-            onBatchProgress?.(completed, total);
             active--;
-            runNext();
+            tick();
+            next();
           },
           onError: (err) => {
             onDocStatus?.(fileName, "failed");
             onDocError?.(fileName, err);
             completed++;
-            onBatchProgress?.(completed, total);
             active--;
-            runNext();
+            tick();
+            next();
           },
         });
       }
     };
 
-    runNext();
+    next();
   });
 }
