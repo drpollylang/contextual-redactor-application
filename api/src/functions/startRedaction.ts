@@ -423,7 +423,7 @@ const TIMEOUT_MS = 1000 * 60 * 15;
  *   BACKEND_START_ENDPOINT, BACKEND_STATUS_ENDPOINT, BACKEND_RESULT_ENDPOINT
  * so configuration stays consistent across start/status/result.
  */
-const BACKEND_START_ENDPOINT = process.env.BACKEND_START_ENDPOINT;
+const BACKEND_START_ENDPOINT = process.env.START_JOB_URL;
 
 export async function startRedactionHandler(
   request: HttpRequest,
