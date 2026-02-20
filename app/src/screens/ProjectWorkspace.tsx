@@ -353,6 +353,15 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
     }
   }, [projectId]);
 
+  useEffect(() => {
+    const flag = localStorage.getItem("aiRefreshProjectId");
+    if (flag === projectId) {
+      console.log("[AI] Workspace refresh triggered.");
+      localStorage.removeItem("aiRefreshProjectId");
+      reloadHighlights();
+    }
+  });
+
   // === History (debug timeline) ===
   type Snapshot = {
     doc: Record<string, CommentedHighlight[]>;
