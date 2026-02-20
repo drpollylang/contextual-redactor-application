@@ -338,27 +338,44 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   }, [searchResults.length]);
 
   // === Automatically refresh highlights ====
+  // useEffect(() => {
+  //   const refreshFlag = localStorage.getItem("aiRefreshProjectId");
+
+  //   if (refreshFlag && refreshFlag === projectId) {
+  //     console.log("[AI] Auto-refresh triggered for Workspace (Project ID match).");
+
+  //     // Prevent double-refresh
+  //     localStorage.removeItem("aiRefreshProjectId");
+
+  //     // 🔥 Trigger your existing restore logic
+  //     // (the same logic in your big useEffect that loads documents + highlights)
+  //     reloadHighlights();
+  //   }
+  // }, [projectId]);
+
+  // useEffect(() => {
+  //   const flag = localStorage.getItem("aiRefreshProjectId");
+  //   if (flag === projectId) {
+  //     console.log("[AI] Workspace refresh triggered.");
+  //     localStorage.removeItem("aiRefreshProjectId");
+  //     reloadHighlights();
+  //   }
+  // });
+  // 🔁 Fire on any render; cheap check; do not remove flags until after reload
   useEffect(() => {
-    const refreshFlag = localStorage.getItem("aiRefreshProjectId");
+    const projectFlag = localStorage.getItem("aiRefreshProjectId");
+    const fileFlag    = localStorage.getItem("aiRefreshFileName");
 
-    if (refreshFlag && refreshFlag === projectId) {
-      console.log("[AI] Auto-refresh triggered for Workspace (Project ID match).");
+    if (projectFlag === projectId && fileFlag) {
+      console.log("[AI] Workspace refresh triggered for:", { projectId, fileName: fileFlag });
 
-      // Prevent double-refresh
-      localStorage.removeItem("aiRefreshProjectId");
-
-      // 🔥 Trigger your existing restore logic
-      // (the same logic in your big useEffect that loads documents + highlights)
-      reloadHighlights();
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    const flag = localStorage.getItem("aiRefreshProjectId");
-    if (flag === projectId) {
-      console.log("[AI] Workspace refresh triggered.");
-      localStorage.removeItem("aiRefreshProjectId");
-      reloadHighlights();
+      // Call with explicit intent (don't read localStorage in reloadHighlights)
+      reloadHighlights({ ingestAi: true, onlyForFile: fileFlag })
+        .finally(() => {
+          // Clear flags only AFTER reload completes
+          localStorage.removeItem("aiRefreshProjectId");
+          localStorage.removeItem("aiRefreshFileName");
+        });
     }
   });
 
@@ -1087,7 +1104,15 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   //     setIsRestored(true);
   //   }
   // };
-  const reloadHighlights = async () => {
+  
+  type ReloadOpts = {
+    ingestAi?: boolean;        // should we merge fresh AI this time?
+    onlyForFile?: string | null; // which PDF fileName to merge AI for (exact match)
+  };
+
+  const reloadHighlights = async (opts: ReloadOpts = {}) => {
+    
+    const { ingestAi = false, onlyForFile = null } = opts;
     let cancelled = false;
 
     try {
@@ -1149,31 +1174,67 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         let mergedActiveIds = workingActiveIds;
 
         // --- 3c) If fresh AI job just completed, merge AI result ---
-        if (shouldIngestAi) {
+        // if (shouldIngestAi) {
+        //   const baseName = fileName.replace(/\.pdf$/i, "");
+        //   const aiJsonPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
+
+        //   // Temporary debug logs to verify path and existence of AI JSON
+        //   console.log("[AI] Checking AI JSON at:", aiJsonPath);
+        //   const resp = await getDownloadSas({ containerName: "files", blobPath: aiJsonPath, ttlMinutes: 10 });
+        //   console.log("[AI] SAS for AI json:", resp);
+
+        //   const aiPayload = await fetchJson<any>("files", aiJsonPath);
+
+        //   if (aiPayload?.allHighlights?.length) {
+        //     console.log("[AI] Fresh AI detected for", fileName);
+
+        //     const freshAi = aiPayload.allHighlights.map(normalizeHighlight);
+
+        //     const manualOnly = workingAll.filter(h => h.source !== "ai");
+
+        //     mergedAll = [...manualOnly, ...freshAi];
+
+        //     mergedActiveIds = mergedAll.map(h => h.id);
+
+        //     // Immediately persist updated merged highlights to WORKING
+        //     await db.pdfs.put({
+        //       id: buildPdfId(projectId!, fileName),
+        //       name: fileName,
+        //       originalBase64: null,
+        //       workingBase64: null,
+        //       finalBase64: null,
+        //       allHighlights: mergedAll,
+        //       activeHighlights: mergedActiveIds
+        //     });
+
+        //     await saveWorkingSnapshotToBlob(userId, projectId!, buildPdfId(projectId!, fileName));
+        //   }
+        // }
+
+        if (ingestAi && fileName === onlyForFile) {
           const baseName = fileName.replace(/\.pdf$/i, "");
           const aiJsonPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
 
-          // Temporary debug logs to verify path and existence of AI JSON
-          console.log("[AI] Checking AI JSON at:", aiJsonPath);
-          const resp = await getDownloadSas({ containerName: "files", blobPath: aiJsonPath, ttlMinutes: 10 });
-          console.log("[AI] SAS for AI json:", resp);
+          // Optional debug to confirm path
+          console.log("[AI] Attempting merge from:", aiJsonPath);
 
+          // 1) Fetch AI JSON
           const aiPayload = await fetchJson<any>("files", aiJsonPath);
 
           if (aiPayload?.allHighlights?.length) {
             console.log("[AI] Fresh AI detected for", fileName);
 
+            // 2) Fresh AI → replace only prior AI highlights, keep manual
             const freshAi = aiPayload.allHighlights.map(normalizeHighlight);
-
             const manualOnly = workingAll.filter(h => h.source !== "ai");
 
             mergedAll = [...manualOnly, ...freshAi];
-
             mergedActiveIds = mergedAll.map(h => h.id);
 
-            // Immediately persist updated merged highlights to WORKING
+            // 3) Persist merged set into WORKING immediately (Dexie + Blob)
+            const pdfId = buildPdfId(projectId!, fileName);
             await db.pdfs.put({
-              id: buildPdfId(projectId!, fileName),
+              id: pdfId,
               name: fileName,
               originalBase64: null,
               workingBase64: null,
@@ -1182,7 +1243,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
               activeHighlights: mergedActiveIds
             });
 
-            await saveWorkingSnapshotToBlob(userId, projectId!, buildPdfId(projectId!, fileName));
+            await saveWorkingSnapshotToBlob(userId, projectId!, pdfId);
           }
         }
 
@@ -2794,7 +2855,8 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
 
           // 🟢 Tell workspace to perform AI-merge behavior on next reload
           localStorage.setItem("aiRefreshProjectId", projectId);
-
+          localStorage.setItem("aiRefreshFileName", name); 
+          
           setIsRedacting(false);
           setLastRedactionStatus("Completed");
         },
