@@ -47,6 +47,7 @@ import { DefaultButton } from "@fluentui/react";
 // import { getDownloadUrl } from "./lib/blobDownload";
 import { saveOriginalPdfToBlob, saveWorkingSnapshotToBlob } from "./lib/blobPersist";
 import { listUserDocuments, getDownloadSas } from "./lib/apiClient";
+// import { runAiRedactionForProjectParallel } from "./helpers/aiRedactionHelpers";
 
 /* =========================
    Local helpers & types
@@ -2311,8 +2312,8 @@ const App: React.FC = () => {
   const [lastRedactionStatus, setLastRedactionStatus] = useState<string | null>(null);
 
   // Optional: capture the last Durable instanceId for debugging/telemetry
-  // const [lastInstanceId, setLastInstanceId] = useState<string | null>(null);
-  const [_, setLastInstanceId] = useState<string | null>(null);
+  const [lastInstanceId, setLastInstanceId] = useState<string | null>(null);
+  // const [_, setLastInstanceId] = useState<string | null>(null);
 
   // Helper to build the source blob path for the current document
   const getSourceBlobPath = () => {
@@ -2324,151 +2325,6 @@ const App: React.FC = () => {
     return `files/${userId}/${projectId}/original/${fileName}`;
   };
 
-  // const startRedactionFromSidebar = async () => {
-  //   if (!currentPdfId) {
-  //     alert("Open a PDF first.");
-  //     return;
-  //   }
-
-  //   const blobPath = getSourceBlobPath();
-  //   if (!blobPath) {
-  //     alert("Could not determine blob path for current PDF.");
-  //     return;
-  //   }
-
-  //   try {
-  //     setIsRedacting(true);
-  //     setLastRedactionStatus("Submitting");
-
-  //     console.log("[AI]: Sending HTTP request to backend API: blobPath " + blobPath + ", rules: " + aiRules + ", userInstructions: " + userInstructions)
-
-  //     // Kick off orchestration via SWA API proxy
-  //     const res = await fetch("/api/start-redaction", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       // body: JSON.stringify({ blobName: blobPath })
-  //       body: JSON.stringify({
-  //         blobName: blobPath,
-  //         rules: aiRules,
-  //         userInstructions: userInstructions     
-  //       })
-  //     });
-  //     if (!res.ok) {
-  //       throw new Error(await res.text());
-  //     }
-
-  //     const data = await res.json();
-  //     setLastInstanceId(data?.id ?? null);
-  //     setLastRedactionStatus("Running");
-  //     console.log("[AI] Durable instance ID:", lastInstanceId);
-
-  //     // Durable provides absolute status URL
-  //     const statusUrl: string = new URL(data.statusQueryGetUri).toString();
-
-  //     // Poll until terminal state
-  //     const pollIntervalMs = 2000;
-  //     const ctrl = new AbortController();
-
-  //     const pollOnce = async () => {
-  //       const resp = await fetch(statusUrl, { signal: ctrl.signal });
-  //       if (!resp.ok) {
-  //         console.warn("[AI] Status poll failed:", resp.status);
-  //         return;
-  //       }
-  //       const status = await resp.json();
-  //       const state = status.runtimeStatus as string;
-  //       setLastRedactionStatus(state);
-
-  //       if (state === "Completed" || state === "Failed" || state === "Terminated") {
-  //         ctrl.abort(); // stop polling
-  //         setIsRedacting(false);
-
-  //         // if (state === "Completed") {
-  //         //   // If your orchestrator returns the final highlights in status.output, merge them here.
-  //         //   // Your current activity returns `final_output` with `allHighlights` etc.
-  //         //   const output = status?.output;
-  //         //   // if (output?.allHighlights && currentPdfId) {
-  //         //   //   // Merge the output highlights into the current doc
-  //         //   //   const newAll = [...(allHighlights[currentPdfId] ?? []), ...output.allHighlights];
-  //         //   //   const newActive = [
-  //         //   //     ...(docHighlights[currentPdfId] ?? []),
-  //         //   //     ...output.allHighlights
-  //         //   //   ];
-
-  //         //   //   setAllHighlights(prev => ({ ...prev, [currentPdfId]: newAll }));
-  //         //   //   setDocHighlights(prev => ({ ...prev, [currentPdfId]: newActive }));
-  //         //   //   // Optionally persist:
-  //         //   //   persistHighlightsToDB(currentPdfId);
-  //         //   // }
-            
-  //         //   await applyAiRedactionsPlugin({
-  //         //       payload: output,         // your activity returns final_output
-  //         //       currentPdfId,
-  //         //       viewer: () => highlighterUtilsRef.current?.getViewer?.() ?? null,
-
-  //         //       setAllHighlights,
-  //         //       setDocHighlights,
-
-  //         //       pushUndoState,
-  //         //       getSnapshot,
-  //         //       logHistory,
-
-  //         //       persist: persistHighlightsToDB,
-  //         //     });
-  //         //   // If instead you output only a blob path (e.g., outputBlobPath), you could fetch JSON:
-  //         //   // const payload = await fetchJson<HighlightsPayload>("files", status.output.outputBlobPath);
-  //         //   // ...then merge as above.
-  //         // }
-  //         if (state === "Completed") {
-  //           console.log("[AI] Orchestration COMPLETED. Payload:", status.output);
-
-  //           const viewerObj = highlighterUtilsRef.current?.getViewer?.();
-  //           console.log("[AI] viewerObj:", viewerObj);
-
-  //           if (!viewerObj) {
-  //             console.warn("[AI] Viewer not ready — retrying in 500ms");
-  //             setTimeout(() => startRedactionFromSidebar(), 500);
-  //             return;
-  //           }
-
-  //           console.log("[AI] Calling plugin...");
-  //           await applyAiRedactionsPlugin({
-  //             payload: status.output,
-  //             currentPdfId,
-  //             viewer: () => viewerObj,
-  //             setAllHighlights,
-  //             setDocHighlights,
-  //             pushUndoState,
-  //             getSnapshot,
-  //             logHistory,
-  //             persist: persistHighlightsToDB
-  //           });
-  //           console.log("[AI] Plugin DONE.");
-  //         }
-  //       }
-  //     };
-
-  //     // Simple interval loop
-  //     const timer = window.setInterval(() => {
-  //       // Ignore if already stopped
-  //       if (ctrl.signal.aborted) {
-  //         clearInterval(timer);
-  //         return;
-  //       }
-  //       pollOnce().catch(err => {
-  //         console.warn("[AI] Poll error:", err);
-  //       });
-  //     }, pollIntervalMs);
-
-  //     // Kick the first poll immediately
-  //     pollOnce().catch(() => {});
-  //   } catch (err) {
-  //     console.error("[AI] Start redaction failed:", err);
-  //     setIsRedacting(false);
-  //     setLastRedactionStatus("Error");
-  //     alert(`Redaction start failed: ${(err as Error)?.message ?? err}`);
-  //   }
-  // };
   const startRedactionFromSidebar = async () => {
     if (!currentPdfId) {
       alert("Open a PDF first.");
@@ -2482,113 +2338,226 @@ const App: React.FC = () => {
     }
 
     try {
-      
       setIsRedacting(true);
       setLastRedactionStatus("Submitting");
 
-      console.log("[AI] Starting redaction for:", {
-        blobPath,
-        rules: aiRules,
-        userInstructions
-      });
+      console.log("[AI]: Sending HTTP request to backend API: blobPath " + blobPath + ", rules: " + aiRules + ", userInstructions: " + userInstructions)
 
-      // IDENTICAL TO ProjectHome.tsx – call the API the same way
+      // Kick off orchestration via SWA API proxy
       const res = await fetch("/api/start-redaction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // body: JSON.stringify({ blobName: blobPath })
         body: JSON.stringify({
           blobName: blobPath,
           rules: aiRules,
-          userInstructions
+          userInstructions: userInstructions     
         })
       });
-
       if (!res.ok) {
         throw new Error(await res.text());
       }
 
       const data = await res.json();
-      const instanceId = data?.id ?? null;
-      setLastInstanceId(instanceId);
+      setLastInstanceId(data?.id ?? null);
       setLastRedactionStatus("Running");
+      console.log("[AI] Durable instance ID:", lastInstanceId);
 
-      console.log("[AI] Durable instance:", instanceId);
+      // Durable provides absolute status URL
+      const statusUrl: string = new URL(data.statusQueryGetUri).toString();
 
-      // Durable returns a FULL URL (same in ProjectHome)
-      const statusUrl = new URL(data.statusQueryGetUri).toString();
-
+      // Poll until terminal state
       const pollIntervalMs = 2000;
       const ctrl = new AbortController();
 
       const pollOnce = async () => {
         const resp = await fetch(statusUrl, { signal: ctrl.signal });
         if (!resp.ok) {
-          console.warn("[AI] Poll failed:", resp.status);
+          console.warn("[AI] Status poll failed:", resp.status);
           return;
         }
         const status = await resp.json();
-        const state = status.runtimeStatus;
+        const state = status.runtimeStatus as string;
         setLastRedactionStatus(state);
 
-        console.log("[AI] poll:", state);
-
-        if (
-          state === "Completed" ||
-          state === "Failed" ||
-          state === "Terminated"
-        ) {
-          ctrl.abort();
+        if (state === "Completed" || state === "Failed" || state === "Terminated") {
+          ctrl.abort(); // stop polling
           setIsRedacting(false);
 
-          if (state === "Completed") {
-            console.log("[AI] COMPLETED. Payload:", status.output);
+          // if (state === "Completed") {
+          //   // If your orchestrator returns the final highlights in status.output, merge them here.
+          //   // Your current activity returns `final_output` with `allHighlights` etc.
+          //   const output = status?.output;
+          //   // if (output?.allHighlights && currentPdfId) {
+          //   //   // Merge the output highlights into the current doc
+          //   //   const newAll = [...(allHighlights[currentPdfId] ?? []), ...output.allHighlights];
+          //   //   const newActive = [
+          //   //     ...(docHighlights[currentPdfId] ?? []),
+          //   //     ...output.allHighlights
+          //   //   ];
 
-            // ensure viewer is ready
+          //   //   setAllHighlights(prev => ({ ...prev, [currentPdfId]: newAll }));
+          //   //   setDocHighlights(prev => ({ ...prev, [currentPdfId]: newActive }));
+          //   //   // Optionally persist:
+          //   //   persistHighlightsToDB(currentPdfId);
+          //   // }
+            
+          //   await applyAiRedactionsPlugin({
+          //       payload: output,         // your activity returns final_output
+          //       currentPdfId,
+          //       viewer: () => highlighterUtilsRef.current?.getViewer?.() ?? null,
+
+          //       setAllHighlights,
+          //       setDocHighlights,
+
+          //       pushUndoState,
+          //       getSnapshot,
+          //       logHistory,
+
+          //       persist: persistHighlightsToDB,
+          //     });
+          //   // If instead you output only a blob path (e.g., outputBlobPath), you could fetch JSON:
+          //   // const payload = await fetchJson<HighlightsPayload>("files", status.output.outputBlobPath);
+          //   // ...then merge as above.
+          // }
+          if (state === "Completed") {
+            console.log("[AI] Orchestration COMPLETED. Payload:", status.output);
+
             const viewerObj = highlighterUtilsRef.current?.getViewer?.();
+            console.log("[AI] viewerObj:", viewerObj);
+
             if (!viewerObj) {
-              console.warn("[AI] Viewer not ready – retry shortly");
+              console.warn("[AI] Viewer not ready — retrying in 500ms");
               setTimeout(() => startRedactionFromSidebar(), 500);
               return;
             }
 
+            console.log("[AI] Calling plugin...");
             await applyAiRedactionsPlugin({
               payload: status.output,
               currentPdfId,
               viewer: () => viewerObj,
-
               setAllHighlights,
               setDocHighlights,
-
               pushUndoState,
               getSnapshot,
               logHistory,
               persist: persistHighlightsToDB
             });
-
-            console.log("[AI] Plugin finished.");
+            console.log("[AI] Plugin DONE.");
           }
         }
       };
 
-      // Start polling loop (same as ProjectHome)
+      // Simple interval loop
       const timer = window.setInterval(() => {
+        // Ignore if already stopped
         if (ctrl.signal.aborted) {
           clearInterval(timer);
           return;
         }
-        pollOnce().catch(err => console.warn("[AI] Poll error:", err));
+        pollOnce().catch(err => {
+          console.warn("[AI] Poll error:", err);
+        });
       }, pollIntervalMs);
 
-      // immediate first poll
+      // Kick the first poll immediately
       pollOnce().catch(() => {});
-
     } catch (err) {
-      console.error("[AI] Error starting redaction:", err);
+      console.error("[AI] Start redaction failed:", err);
       setIsRedacting(false);
       setLastRedactionStatus("Error");
-      alert(`Redaction start failed: ${(err as Error)?.message}`);
+      alert(`Redaction start failed: ${(err as Error)?.message ?? err}`);
     }
   };
+
+  // const startRedactionFromSidebar = async () => {
+  //   if (!currentPdfId) {
+  //     alert("Open a PDF first.");
+  //     return;
+  //   }
+
+  //   const fileName = uploadedPdfs.find(p => p.id === currentPdfId)?.name;
+  //   if (!fileName) {
+  //     alert("Could not determine file name for current PDF.");
+  //     return;
+  //   }
+
+  //   const projectId = "DevTesting";   // same placeholder you use elsewhere
+
+  //   setIsRedacting(true);
+  //   setLastRedactionStatus("Starting AI…");
+
+  //   const abort = new AbortController();
+  //   const { signal } = abort;
+  //   const startTs = Date.now(); // optional
+
+  //   try {
+  //     await runAiRedactionForProjectParallel({
+  //       userId,
+  //       projectId,
+  //       fileNames: [fileName],           // SINGLE DOCUMENT MODE
+  //       aiRules,
+  //       userInstructions,
+  //       concurrency: 1,                  // force single
+  //       signal,
+
+  //       onDocStatus: (name, status) => {
+  //         console.log(`[AI] ${name}: ${status}`);
+  //         setLastRedactionStatus(status);
+  //       },
+
+  //       onDocComplete: async (name, output) => {
+  //         console.log("[AI] Completed:", { name, output });
+
+  //         const viewerObj = highlighterUtilsRef.current?.getViewer?.();
+  //         if (!viewerObj) {
+  //           console.warn("[AI] Viewer not ready — retrying");
+  //           setTimeout(() => startRedactionFromSidebar(), 500);
+  //           return;
+  //         }
+
+  //         await applyAiRedactionsPlugin({
+  //           payload: output,
+  //           currentPdfId,
+  //           viewer: () => viewerObj,
+
+  //           setAllHighlights,
+  //           setDocHighlights,
+
+  //           pushUndoState,
+  //           getSnapshot,
+  //           logHistory,
+  //           persist: persistHighlightsToDB
+  //         });
+
+  //         console.log("[AI] Applied plugin");
+  //       },
+
+  //       onDocError: (name) => {
+  //         console.error("[AI] FAILED:", name);
+  //         setLastRedactionStatus("Failed");
+  //         alert("AI redaction failed for " + name);
+  //       },
+
+  //       onBatchProgress: (done, total) => {
+  //         setLastRedactionStatus(`Progress: ${done} / ${total}`);
+  //       }
+  //     });
+
+  //   } catch (err) {
+  //     if (signal.aborted) {
+  //       console.warn("[AI] aborted");
+  //       setLastRedactionStatus("Cancelled");
+  //     } else {
+  //       console.error("[AI] error:", err);
+  //       setLastRedactionStatus("Error");
+  //       alert("AI redaction start failed: " + (err.message || err));
+  //     }
+  //   }
+
+  //   setIsRedacting(false);
+  // };
 
   /* ------------------------------------
      Redact and export pdfs (current/all)
