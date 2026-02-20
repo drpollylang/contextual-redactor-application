@@ -2536,54 +2536,59 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
 
         onDocComplete: async (name, output) => {
           console.log("[AI] Completed:", { name, output });
+       
+          // Tell the Workspace to reload from ai_redactions/
+          localStorage.setItem("aiRefreshProjectId", projectId);
+          
+          setIsRedacting(false);
+          setLastRedactionStatus("Completed");
+          // const viewerObj = highlighterUtilsRef.current?.getViewer?.();
+          // if (!viewerObj) {
+          //   console.warn("[AI] Viewer not ready — retrying");
+          //   setTimeout(() => startRedactionFromSidebar(), 500);
+          //   return;
+          // }
 
-          const viewerObj = highlighterUtilsRef.current?.getViewer?.();
-          if (!viewerObj) {
-            console.warn("[AI] Viewer not ready — retrying");
-            setTimeout(() => startRedactionFromSidebar(), 500);
-            return;
-          }
+          // await applyAiRedactionsPlugin({
+          //   payload: output,
+          //   currentPdfId,
+          //   viewer: () => viewerObj,
 
-          await applyAiRedactionsPlugin({
-            payload: output,
-            currentPdfId,
-            viewer: () => viewerObj,
+          //   setAllHighlights,
+          //   setDocHighlights,
 
-            setAllHighlights,
-            setDocHighlights,
+          //   pushUndoState,
+          //   getSnapshot,
+          //   logHistory,
+          //   persist: persistHighlightsToDB
+          // });
 
-            pushUndoState,
-            getSnapshot,
-            logHistory,
-            persist: persistHighlightsToDB
-          });
+          // console.log("[AI] Plugin DONE. Now updating working file…");
 
-          console.log("[AI] Plugin DONE. Now updating working file…");
+          // const fileName = uploadedPdfs.find(p => p.id === currentPdfId)?.name;
 
-          const fileName = uploadedPdfs.find(p => p.id === currentPdfId)?.name;
+          // // 1. Save the new highlights to Blob Storage (/working/)
+          // await saveWorkingSnapshotToBlob(userId, projectId, currentPdfId);
+          // console.log("[AI] Working snapshot updated.");
 
-          // 1. Save the new highlights to Blob Storage (/working/)
-          await saveWorkingSnapshotToBlob(userId, projectId, currentPdfId);
-          console.log("[AI] Working snapshot updated.");
+          // // 2. Refresh the working PDF displayed in the viewer
+          // const updatedWorkingBlobPath =
+          //   `files/${userId}/${projectId}/working/${fileName}`;
 
-          // 2. Refresh the working PDF displayed in the viewer
-          const updatedWorkingBlobPath =
-            `files/${userId}/${projectId}/working/${fileName}`;
+          // const newBlobUrl = await fetchBlobUrl("files", updatedWorkingBlobPath);
 
-          const newBlobUrl = await fetchBlobUrl("files", updatedWorkingBlobPath);
+          // // 3. Update the viewer state
+          // setUploadedPdfs(prev =>
+          //   prev.map(p =>
+          //     p.id === currentPdfId
+          //       ? { ...p, url: newBlobUrl }
+          //       : p
+          //   )
+          // );
 
-          // 3. Update the viewer state
-          setUploadedPdfs(prev =>
-            prev.map(p =>
-              p.id === currentPdfId
-                ? { ...p, url: newBlobUrl }
-                : p
-            )
-          );
-
-          // 4. Force PdfLoader rerender + clear cached PDF.js document
-          pdfDocumentRef.current = null;
-          setCurrentPdfId(currentPdfId);
+          // // 4. Force PdfLoader rerender + clear cached PDF.js document
+          // pdfDocumentRef.current = null;
+          // setCurrentPdfId(currentPdfId);
 
           console.log("[AI] Viewer refreshed with updated redactions.");
         },
@@ -2611,6 +2616,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
     }
 
     setIsRedacting(false);
+    setLastRedactionStatus("Completed");
   };
 
   // const startRedactionFromSidebar = async () => {
