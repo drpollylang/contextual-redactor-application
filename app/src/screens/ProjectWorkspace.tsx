@@ -938,6 +938,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
 
       for (const d of docsForProject) {
         const fileName = d.fileName;
+        const pdfId = buildPdfId(projectId!, fileName);
 
         console.log(
           "[DEBUG] Comparing projectId",
@@ -970,12 +971,29 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         if (d.highlightsPath) {
           const p = await fetchJson<HighlightsPayload>("files", d.highlightsPath);
           if (p) {
-            all = (p.allHighlights ?? []).map(normalizeHighlight);
-            activeIds = p.activeHighlights ?? [];
+            // all = (p.allHighlights ?? []).map(normalizeHighlight);
+            // activeIds = p.activeHighlights ?? [];
+            // Read working highlights FIRST
+            const workingAll = (p?.allHighlights ?? []).map(normalizeHighlight);
+            const workingActiveIds = p?.activeHighlights ?? [];
+
+            // If AI redactions exist for this PDF, DO NOT use old AI highlights from working
+            const hasPendingAi = pendingAiByPdfId[pdfId] !== undefined;
+
+            if (!hasPendingAi) {
+              // normal behaviour — no new AI results → use working highlights
+              all = workingAll;
+              activeIds = workingActiveIds;
+            } else {
+              // AI refresh just triggered.  Keep ONLY manual highlights for initial render.
+              all = workingAll.filter(h => h.source !== "ai");
+              activeIds = workingActiveIds.filter(id => {
+                const h = workingAll.find(x => x.id === id);
+                return h?.source !== "ai";
+              });
+            }
           }
         }
-
-        const pdfId = buildPdfId(projectId!, fileName);
 
         // ---- Queue AI suggestions for this PDF (if any)
         try {
