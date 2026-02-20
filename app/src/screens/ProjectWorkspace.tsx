@@ -2558,7 +2558,34 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
             persist: persistHighlightsToDB
           });
 
-          console.log("[AI] Applied plugin");
+          console.log("[AI] Plugin DONE. Now updating working file…");
+
+          const fileName = uploadedPdfs.find(p => p.id === currentPdfId)?.name;
+
+          // 1. Save the new highlights to Blob Storage (/working/)
+          await saveWorkingSnapshotToBlob(userId, projectId, currentPdfId);
+          console.log("[AI] Working snapshot updated.");
+
+          // 2. Refresh the working PDF displayed in the viewer
+          const updatedWorkingBlobPath =
+            `files/${userId}/${projectId}/working/${fileName}`;
+
+          const newBlobUrl = await fetchBlobUrl("files", updatedWorkingBlobPath);
+
+          // 3. Update the viewer state
+          setUploadedPdfs(prev =>
+            prev.map(p =>
+              p.id === currentPdfId
+                ? { ...p, url: newBlobUrl }
+                : p
+            )
+          );
+
+          // 4. Force PdfLoader rerender + clear cached PDF.js document
+          pdfDocumentRef.current = null;
+          setCurrentPdfId(currentPdfId);
+
+          console.log("[AI] Viewer refreshed with updated redactions.");
         },
 
         onDocError: (name) => {
