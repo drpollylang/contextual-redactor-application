@@ -850,106 +850,281 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
   }, [currentPdfId, zoom]);
 
 
-  function toPluginPayloadFromAiSuggestions(
-    aiPayload: any,
-    pdfId: string,
-    fileName: string
-  ): AiRedactionPayload {
-    console.log("[AI merge] Raw AI payload (keys):", Object.keys(aiPayload));
+  // function toPluginPayloadFromAiSuggestions(
+  //   aiPayload: any,
+  //   pdfId: string,
+  //   fileName: string
+  // ): AiRedactionPayload {
+  //   console.log("[AI merge] Raw AI payload (keys):", Object.keys(aiPayload));
 
-    const items = (aiPayload?.allHighlights ?? []).map((s: any) => {
-      // const pageNum = s?.position?.boundingRect?.pageNumber ?? 1;
+  //   const items = (aiPayload?.allHighlights ?? []).map((s: any) => {
+  //     // const pageNum = s?.position?.boundingRect?.pageNumber ?? 1;
 
-      // Rects are normalized x,y,width,height already
-      const rects = (s?.position?.rects ?? []).map((r: any) => ({
-        x: Number(r.x) || 0,
-        y: Number(r.y) || 0,
-        width: Number(r.width) || 0,
-        height: Number(r.height) || 0
-      }));
+  //     // Rects are normalized x,y,width,height already
+  //     const rects = (s?.position?.rects ?? []).map((r: any) => ({
+  //       x: Number(r.x) || 0,
+  //       y: Number(r.y) || 0,
+  //       width: Number(r.width) || 0,
+  //       height: Number(r.height) || 0
+  //     }));
 
-      // const b = s.position.boundingRect;
+  //     // const b = s.position.boundingRect;
 
-      // const boundingRect = {
-      //   x: Number(b.x),
-      //   y: Number(b.y),
-      //   width: Number(b.width),
-      //   height: Number(b.height),
-      //   pageNumber: s.pageNumber
-      // };
+  //     // const boundingRect = {
+  //     //   x: Number(b.x),
+  //     //   y: Number(b.y),
+  //     //   width: Number(b.width),
+  //     //   height: Number(b.height),
+  //     //   pageNumber: s.pageNumber
+  //     // };
 
-      const item = {
-        id: s?.id,
-        content: { text: s?.content?.text ?? "" },
-        position: {
-          boundingRect: s.position.boundingRect,
-          rects,
-        },
-        metadata: s?.metadata ?? null
-      };
+  //     const item = {
+  //       id: s?.id,
+  //       content: { text: s?.content?.text ?? "" },
+  //       position: {
+  //         boundingRect: s.position.boundingRect,
+  //         rects,
+  //       },
+  //       metadata: s?.metadata ?? null
+  //     };
 
-      return item;
-    });
+  //     return item;
+  //   });
 
-    const payload: AiRedactionPayload = {
-      pdfId,
-      fileName,
-      allHighlights: items,
-      activeHighlights: [],
-      savedAt: new Date().toISOString()
-    };
+  //   const payload: AiRedactionPayload = {
+  //     pdfId,
+  //     fileName,
+  //     allHighlights: items,
+  //     activeHighlights: [],
+  //     savedAt: new Date().toISOString()
+  //   };
 
-    console.log("[AI merge] Plugin-compatible payload size:", payload.allHighlights.length);
-    return payload;
-  }
+  //   console.log("[AI merge] Plugin-compatible payload size:", payload.allHighlights.length);
+  //   return payload;
+  // }
+
+  // 🟢 AI Refresh Trigger - runs every render, very fast and safe
+  useEffect(() => {
+    const flag = localStorage.getItem("aiRefreshProjectId");
+
+    if (flag === projectId) {
+      console.log("[AI] Refresh flag detected. Reloading highlights...");
+      localStorage.removeItem("aiRefreshProjectId");
+      reloadHighlights();     // ⬅ will run with AI-ingest enabled
+    }
+  });
 
   useEffect(() => {
     console.log("[AI merge] pending map keys:", Object.keys(pendingAiByPdfId));
   }, [pendingAiByPdfId]);
 
+  // const reloadHighlights = async () => {
+  //   let cancelled = false;
+
+  //   try {
+  //     // 0) Clear state
+  //     setUploadedPdfs([]);
+  //     setAllHighlights({});
+  //     setDocHighlights({});
+  //     setIsRestored(false);
+
+  //     // 1) Preferences
+  //     const prefs = await db.preferences.get("preferences");
+  //     if (!cancelled && prefs) {
+  //       setZoom(prefs.zoom);
+  //       setHighlightPen(prefs.highlightPenEnabled);
+  //     }
+  //     // const effectiveUserId = prefs?.userIdentity ?? "anonymous";
+  //     const effectiveUserId = userId;
+
+  //     // 2) List docs
+  //     const docs = await listUserDocuments(effectiveUserId);
+  //     if (cancelled) return;
+  //     const docsForProject = docs.filter(d => d.projectId === projectId);
+
+  //     // 3) Fetch PDFs + highlights
+  //     const uploaded: UploadedPdf[] = [];
+  //     const highlightsMap: Record<string, CommentedHighlight[]> = {};
+  //     const activeMap: Record<string, CommentedHighlight[]> = {};
+
+  //     for (const d of docsForProject) {
+  //       const fileName = d.fileName;
+  //       const pdfId = buildPdfId(projectId!, fileName);
+
+  //       console.log(
+  //         "[DEBUG] Comparing projectId",
+  //         JSON.stringify(d.projectId),
+  //         "===",
+  //         JSON.stringify(projectId),
+  //         d.projectId === projectId
+  //       );
+
+  //       // working > original
+  //       let pdfUrl = null;
+  //       if (d.workingPath) {
+  //         pdfUrl = await fetchBlobUrl("files", d.workingPath);
+  //       } else if (d.originalPath) {
+  //         pdfUrl = await fetchBlobUrl("files", d.originalPath);
+  //       }
+  //       if (!pdfUrl) continue;
+
+  //       // highlights
+  //       type HighlightsPayload = {
+  //         pdfId: string;
+  //         fileName: string;
+  //         allHighlights: CommentedHighlight[];
+  //         activeHighlights: string[];
+  //       };
+
+  //       let all: CommentedHighlight[] = [];
+  //       let activeIds: string[] = [];
+
+  //       if (d.highlightsPath) {
+  //         const p = await fetchJson<HighlightsPayload>("files", d.highlightsPath);
+  //         if (p) {
+  //           // all = (p.allHighlights ?? []).map(normalizeHighlight);
+  //           // activeIds = p.activeHighlights ?? [];
+  //           // Read working highlights FIRST
+  //           const workingAll = (p?.allHighlights ?? []).map(normalizeHighlight);
+  //           const workingActiveIds = p?.activeHighlights ?? [];
+
+  //           // If AI redactions exist for this PDF, DO NOT use old AI highlights from working
+  //           const hasPendingAi = pendingAiByPdfId[pdfId] !== undefined;
+
+  //           if (!hasPendingAi) {
+  //             // normal behaviour — no new AI results → use working highlights
+  //             all = workingAll;
+  //             activeIds = workingActiveIds;
+  //           } else {
+  //             // AI refresh just triggered.  Keep ONLY manual highlights for initial render.
+  //             all = workingAll.filter(h => h.source !== "ai");
+  //             activeIds = workingActiveIds.filter(id => {
+  //               const h = workingAll.find(x => x.id === id);
+  //               return h?.source !== "ai";
+  //             });
+  //           }
+  //         }
+  //       }
+
+  //       // ---- Queue AI suggestions for this PDF (if any)
+  //       try {
+  //         const baseName = fileName.replace(/\.pdf$/i, "");
+  //         const aiPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
+  //         console.log("[AI merge] Fetching AI file:", aiPath);
+  //         const aiPayload = await fetchJson<any>("files", aiPath);
+  //         if (aiPayload && Array.isArray(aiPayload.allHighlights) && aiPayload.allHighlights.length > 0) {
+  //           const payloadForPlugin = toPluginPayloadFromAiSuggestions(aiPayload, pdfId, fileName);
+  //           setPendingAiByPdfId(prev => ({
+  //             ...prev,
+  //             [pdfId]: payloadForPlugin
+  //           }));
+  //           console.log("[AI merge] Queued pending AI for", pdfId, "count:", aiPayload.allHighlights.length);
+  //         }
+  //         else {
+  //           console.log("[AI merge] No allHighlights found in:", aiPath);
+  //         }
+  //       } catch (e) {
+  //         console.warn("[AI merge] No ai_redactions or fetch failed for", fileName, e);
+  //       }
+  //       console.log("Pending AI payloads after restore:", pendingAiByPdfId);
+
+  //       // In-memory viewer state
+  //       highlightsMap[pdfId] = all;
+  //       activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
+  //       console.log("Highlight map before merge:", highlightsMap[pdfId]);
+
+  //       uploaded.push({ id: pdfId, name: fileName, url: pdfUrl });
+
+  //       await db.pdfs.put({
+  //         id: pdfId,
+  //         name: fileName,
+  //         originalBase64: null,
+  //         workingBase64: null,
+  //         finalBase64: null,
+  //         allHighlights: all,
+  //         activeHighlights: activeIds,
+  //       });
+  //     }
+
+  //     // 4) Apply to state
+  //     setUploadedPdfs(prev => {
+  //       prev.forEach(p => URL.revokeObjectURL(p.url));
+  //       return uploaded;
+  //     });
+  //     setAllHighlights(highlightsMap);
+  //     setDocHighlights(activeMap);
+
+  //     // 5) Select current PDF
+  //     const lastId = prefs?.lastOpenedPdfId ?? null;
+  //     const hasLast = !!lastId && uploaded.some(p => p.id === lastId);
+  //     setCurrentPdfId(hasLast ? lastId : uploaded[0]?.id ?? null);
+
+  //     setIsRestored(true);
+  //   } catch (e) {
+  //     console.error("[RESTORE] reloadHighlights failed", e);
+
+  //     // Fallback branch (Dexie)
+  //     const pdfs = await db.pdfs.toArray();
+  //     const restored: UploadedPdf[] = (pdfs as any[]).map(p => {
+  //       const w64 = p.workingBase64 ?? p.originalBase64;
+  //       const blob = w64 ? base64ToBlob(w64) : new Blob([], { type: "application/pdf" });
+  //       return { id: p.id, name: p.name, url: URL.createObjectURL(blob) };
+  //     });
+
+  //     setUploadedPdfs(restored);
+
+  //     const highlightsMap: Record<string, CommentedHighlight[]> = {};
+  //     const activeMap: Record<string, CommentedHighlight[]> = {};
+  //     for (const p of pdfs as any[]) {
+  //       const all = p.allHighlights ?? [];
+  //       const act = p.activeHighlights ?? [];
+  //       highlightsMap[p.id] = all;
+  //       activeMap[p.id] = all.filter((h: CommentedHighlight) => act.includes(h.id));
+  //     }
+
+  //     setAllHighlights(highlightsMap);
+  //     setDocHighlights(activeMap);
+  //     setIsRestored(true);
+  //   }
+  // };
   const reloadHighlights = async () => {
     let cancelled = false;
 
     try {
-      // 0) Clear state
+      // --- 0) Reset in‑memory viewer state ---
       setUploadedPdfs([]);
       setAllHighlights({});
       setDocHighlights({});
       setIsRestored(false);
 
-      // 1) Preferences
+      // Determine whether this reload should ingest fresh AI
+      const shouldIngestAi = localStorage.getItem("aiRefreshProjectId") === projectId;
+
+      // --- 1) Restore preferences ---
       const prefs = await db.preferences.get("preferences");
       if (!cancelled && prefs) {
         setZoom(prefs.zoom);
         setHighlightPen(prefs.highlightPenEnabled);
       }
-      // const effectiveUserId = prefs?.userIdentity ?? "anonymous";
+
       const effectiveUserId = userId;
 
-      // 2) List docs
+      // --- 2) List documents for this project ---
       const docs = await listUserDocuments(effectiveUserId);
       if (cancelled) return;
       const docsForProject = docs.filter(d => d.projectId === projectId);
 
-      // 3) Fetch PDFs + highlights
+      // --- 3) Load PDFs + highlights ---
       const uploaded: UploadedPdf[] = [];
       const highlightsMap: Record<string, CommentedHighlight[]> = {};
       const activeMap: Record<string, CommentedHighlight[]> = {};
 
       for (const d of docsForProject) {
         const fileName = d.fileName;
-        const pdfId = buildPdfId(projectId!, fileName);
 
-        console.log(
-          "[DEBUG] Comparing projectId",
-          JSON.stringify(d.projectId),
-          "===",
-          JSON.stringify(projectId),
-          d.projectId === projectId
-        );
-
-        // working > original
-        let pdfUrl = null;
+        // --- 3a) Choose which PDF to show ---
+        // Always prefer /working/ PDF if it exists
+        let pdfUrl: string | null = null;
         if (d.workingPath) {
           pdfUrl = await fetchBlobUrl("files", d.workingPath);
         } else if (d.originalPath) {
@@ -957,93 +1132,82 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
         }
         if (!pdfUrl) continue;
 
-        // highlights
-        type HighlightsPayload = {
-          pdfId: string;
-          fileName: string;
-          allHighlights: CommentedHighlight[];
-          activeHighlights: string[];
-        };
-
-        let all: CommentedHighlight[] = [];
-        let activeIds: string[] = [];
+        // --- 3b) Load WORKING highlights (manual + old AI) ---
+        let workingAll: CommentedHighlight[] = [];
+        let workingActiveIds: string[] = [];
 
         if (d.highlightsPath) {
-          const p = await fetchJson<HighlightsPayload>("files", d.highlightsPath);
+          const p = await fetchJson<any>("files", d.highlightsPath);
           if (p) {
-            // all = (p.allHighlights ?? []).map(normalizeHighlight);
-            // activeIds = p.activeHighlights ?? [];
-            // Read working highlights FIRST
-            const workingAll = (p?.allHighlights ?? []).map(normalizeHighlight);
-            const workingActiveIds = p?.activeHighlights ?? [];
-
-            // If AI redactions exist for this PDF, DO NOT use old AI highlights from working
-            const hasPendingAi = pendingAiByPdfId[pdfId] !== undefined;
-
-            if (!hasPendingAi) {
-              // normal behaviour — no new AI results → use working highlights
-              all = workingAll;
-              activeIds = workingActiveIds;
-            } else {
-              // AI refresh just triggered.  Keep ONLY manual highlights for initial render.
-              all = workingAll.filter(h => h.source !== "ai");
-              activeIds = workingActiveIds.filter(id => {
-                const h = workingAll.find(x => x.id === id);
-                return h?.source !== "ai";
-              });
-            }
+            workingAll = (p.allHighlights ?? []).map(normalizeHighlight);
+            workingActiveIds = p.activeHighlights ?? [];
           }
         }
 
-        // ---- Queue AI suggestions for this PDF (if any)
-        try {
+        // --- DEFAULT: use working highlights ---
+        let mergedAll = workingAll;
+        let mergedActiveIds = workingActiveIds;
+
+        // --- 3c) If fresh AI job just completed, merge AI result ---
+        if (shouldIngestAi) {
           const baseName = fileName.replace(/\.pdf$/i, "");
-          const aiPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
-          console.log("[AI merge] Fetching AI file:", aiPath);
-          const aiPayload = await fetchJson<any>("files", aiPath);
-          if (aiPayload && Array.isArray(aiPayload.allHighlights) && aiPayload.allHighlights.length > 0) {
-            const payloadForPlugin = toPluginPayloadFromAiSuggestions(aiPayload, pdfId, fileName);
-            setPendingAiByPdfId(prev => ({
-              ...prev,
-              [pdfId]: payloadForPlugin
-            }));
-            console.log("[AI merge] Queued pending AI for", pdfId, "count:", aiPayload.allHighlights.length);
+          const aiJsonPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
+
+          const aiPayload = await fetchJson<any>("files", aiJsonPath);
+
+          if (aiPayload?.allHighlights?.length) {
+            console.log("[AI] Fresh AI detected for", fileName);
+
+            const freshAi = aiPayload.allHighlights.map(normalizeHighlight);
+
+            const manualOnly = workingAll.filter(h => h.source !== "ai");
+
+            mergedAll = [...manualOnly, ...freshAi];
+
+            mergedActiveIds = mergedAll.map(h => h.id);
+
+            // Immediately persist updated merged highlights to WORKING
+            await db.pdfs.put({
+              id: buildPdfId(projectId!, fileName),
+              name: fileName,
+              originalBase64: null,
+              workingBase64: null,
+              finalBase64: null,
+              allHighlights: mergedAll,
+              activeHighlights: mergedActiveIds
+            });
+
+            await saveWorkingSnapshotToBlob(userId, projectId!, buildPdfId(projectId!, fileName));
           }
-          else {
-            console.log("[AI merge] No allHighlights found in:", aiPath);
-          }
-        } catch (e) {
-          console.warn("[AI merge] No ai_redactions or fetch failed for", fileName, e);
         }
-        console.log("Pending AI payloads after restore:", pendingAiByPdfId);
 
-        // In-memory viewer state
-        highlightsMap[pdfId] = all;
-        activeMap[pdfId] = all.filter(h => activeIds.includes(h.id));
-        console.log("Highlight map before merge:", highlightsMap[pdfId]);
+        const pdfId = buildPdfId(projectId!, fileName);
 
-        uploaded.push({ id: pdfId, name: fileName, url: pdfUrl });
+        highlightsMap[pdfId] = mergedAll;
+        activeMap[pdfId] = mergedAll.filter(h => mergedActiveIds.includes(h.id));
 
-        await db.pdfs.put({
+        uploaded.push({
           id: pdfId,
           name: fileName,
-          originalBase64: null,
-          workingBase64: null,
-          finalBase64: null,
-          allHighlights: all,
-          activeHighlights: activeIds,
+          url: pdfUrl
         });
       }
 
-      // 4) Apply to state
+      // --- Clear AI refresh flag after merge is applied ---
+      if (shouldIngestAi) {
+        localStorage.removeItem("aiRefreshProjectId");
+      }
+
+      // --- 4) Update state ---
       setUploadedPdfs(prev => {
         prev.forEach(p => URL.revokeObjectURL(p.url));
         return uploaded;
       });
+
       setAllHighlights(highlightsMap);
       setDocHighlights(activeMap);
 
-      // 5) Select current PDF
+      // --- 5) Pick current doc ---
       const lastId = prefs?.lastOpenedPdfId ?? null;
       const hasLast = !!lastId && uploaded.some(p => p.id === lastId);
       setCurrentPdfId(hasLast ? lastId : uploaded[0]?.id ?? null);
@@ -1052,9 +1216,9 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
     } catch (e) {
       console.error("[RESTORE] reloadHighlights failed", e);
 
-      // Fallback branch (Dexie)
+      // ---- fallback to Dexie ----
       const pdfs = await db.pdfs.toArray();
-      const restored: UploadedPdf[] = (pdfs as any[]).map(p => {
+      const restored: UploadedPdf[] = (pdfs as any[]).map((p: any) => {
         const w64 = p.workingBase64 ?? p.originalBase64;
         const blob = w64 ? base64ToBlob(w64) : new Blob([], { type: "application/pdf" });
         return { id: p.id, name: p.name, url: URL.createObjectURL(blob) };
@@ -1076,6 +1240,7 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
       setIsRestored(true);
     }
   };
+
 
   useEffect(() => {
     reloadHighlights();
@@ -2561,63 +2726,72 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
           setLastRedactionStatus(status);
         },
 
+        // onDocComplete: async (name, output) => {
+        //   console.log("[AI] Completed:", { name, output });
+       
+        //   // Tell the Workspace to reload from ai_redactions/
+        //   localStorage.setItem("aiRefreshProjectId", projectId);
+          
+        //   setIsRedacting(false);
+        //   setLastRedactionStatus("Completed");
+        //   // const viewerObj = highlighterUtilsRef.current?.getViewer?.();
+        //   // if (!viewerObj) {
+        //   //   console.warn("[AI] Viewer not ready — retrying");
+        //   //   setTimeout(() => startRedactionFromSidebar(), 500);
+        //   //   return;
+        //   // }
+
+        //   // await applyAiRedactionsPlugin({
+        //   //   payload: output,
+        //   //   currentPdfId,
+        //   //   viewer: () => viewerObj,
+
+        //   //   setAllHighlights,
+        //   //   setDocHighlights,
+
+        //   //   pushUndoState,
+        //   //   getSnapshot,
+        //   //   logHistory,
+        //   //   persist: persistHighlightsToDB
+        //   // });
+
+        //   // console.log("[AI] Plugin DONE. Now updating working file…");
+
+        //   // const fileName = uploadedPdfs.find(p => p.id === currentPdfId)?.name;
+
+        //   // // 1. Save the new highlights to Blob Storage (/working/)
+        //   // await saveWorkingSnapshotToBlob(userId, projectId, currentPdfId);
+        //   // console.log("[AI] Working snapshot updated.");
+
+        //   // // 2. Refresh the working PDF displayed in the viewer
+        //   // const updatedWorkingBlobPath =
+        //   //   `files/${userId}/${projectId}/working/${fileName}`;
+
+        //   // const newBlobUrl = await fetchBlobUrl("files", updatedWorkingBlobPath);
+
+        //   // // 3. Update the viewer state
+        //   // setUploadedPdfs(prev =>
+        //   //   prev.map(p =>
+        //   //     p.id === currentPdfId
+        //   //       ? { ...p, url: newBlobUrl }
+        //   //       : p
+        //   //   )
+        //   // );
+
+        //   // // 4. Force PdfLoader rerender + clear cached PDF.js document
+        //   // pdfDocumentRef.current = null;
+        //   // setCurrentPdfId(currentPdfId);
+
+        //   console.log("[AI] Viewer refreshed with updated redactions.");
+        // },
         onDocComplete: async (name, output) => {
           console.log("[AI] Completed:", { name, output });
-       
-          // Tell the Workspace to reload from ai_redactions/
+
+          // 🟢 Tell workspace to perform AI-merge behavior on next reload
           localStorage.setItem("aiRefreshProjectId", projectId);
-          
+
           setIsRedacting(false);
           setLastRedactionStatus("Completed");
-          // const viewerObj = highlighterUtilsRef.current?.getViewer?.();
-          // if (!viewerObj) {
-          //   console.warn("[AI] Viewer not ready — retrying");
-          //   setTimeout(() => startRedactionFromSidebar(), 500);
-          //   return;
-          // }
-
-          // await applyAiRedactionsPlugin({
-          //   payload: output,
-          //   currentPdfId,
-          //   viewer: () => viewerObj,
-
-          //   setAllHighlights,
-          //   setDocHighlights,
-
-          //   pushUndoState,
-          //   getSnapshot,
-          //   logHistory,
-          //   persist: persistHighlightsToDB
-          // });
-
-          // console.log("[AI] Plugin DONE. Now updating working file…");
-
-          // const fileName = uploadedPdfs.find(p => p.id === currentPdfId)?.name;
-
-          // // 1. Save the new highlights to Blob Storage (/working/)
-          // await saveWorkingSnapshotToBlob(userId, projectId, currentPdfId);
-          // console.log("[AI] Working snapshot updated.");
-
-          // // 2. Refresh the working PDF displayed in the viewer
-          // const updatedWorkingBlobPath =
-          //   `files/${userId}/${projectId}/working/${fileName}`;
-
-          // const newBlobUrl = await fetchBlobUrl("files", updatedWorkingBlobPath);
-
-          // // 3. Update the viewer state
-          // setUploadedPdfs(prev =>
-          //   prev.map(p =>
-          //     p.id === currentPdfId
-          //       ? { ...p, url: newBlobUrl }
-          //       : p
-          //   )
-          // );
-
-          // // 4. Force PdfLoader rerender + clear cached PDF.js document
-          // pdfDocumentRef.current = null;
-          // setCurrentPdfId(currentPdfId);
-
-          console.log("[AI] Viewer refreshed with updated redactions.");
         },
 
         onDocError: (name) => {
