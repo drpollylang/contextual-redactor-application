@@ -1153,6 +1153,11 @@ export default function ProjectWorkspace({ userId, aiRules, setAiRules, userInst
           const baseName = fileName.replace(/\.pdf$/i, "");
           const aiJsonPath = `${effectiveUserId}/${projectId}/ai_redactions/${baseName}.json`;
 
+          // Temporary debug logs to verify path and existence of AI JSON
+          console.log("[AI] Checking AI JSON at:", aiJsonPath);
+          const resp = await getDownloadSas({ containerName: "files", blobPath: aiJsonPath, ttlMinutes: 10 });
+          console.log("[AI] SAS for AI json:", resp);
+
           const aiPayload = await fetchJson<any>("files", aiJsonPath);
 
           if (aiPayload?.allHighlights?.length) {
