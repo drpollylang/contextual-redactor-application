@@ -418,11 +418,7 @@ const TIMEOUT_MS = 1000 * 60 * 15;
 //   }
 // }
 
-/**
- * Use the SAME naming convention as your other SWA functions:
- *   JOB_START_URL, JOB_STATUS_URL, JOB_RESULT_URL
- * so configuration stays consistent across start/status/result.
- */
+
 const JOB_START_URL = process.env.START_JOB_URL;
 
 export async function startRedactionHandler(
